@@ -15,9 +15,9 @@ const Profile: React.FC = () => {
   // 关于我们
   const handleAbout = () => {
     Taro.showModal({
-      title: '关于智票通',
+      title: '关于免费车登记',
       content:
-        '智票通是一款专业的车辆通行费票据识别小程序，通过AI技术自动提取票据信息，提高缴费记录管理和报销效率。\n\n版本：v1.0.0',
+        '免费车登记是一款专业的免费车辆登记管理小程序，通过AI技术自动提取车辆信息，提高登记效率。\n\n版本：v1.0.0',
       showCancel: false
     })
   }
@@ -27,7 +27,7 @@ const Profile: React.FC = () => {
     Taro.showModal({
       title: '使用帮助',
       content:
-        '1. 在"识别"页面拍照或上传票据图片\n2. 系统自动识别票据信息\n3. 确认或编辑识别结果\n4. 保存到历史记录\n5. 在"记录"页面查看和管理历史记录',
+        '1. 在"登记"页面拍照或上传车辆信息图片\n2. 系统自动识别车辆信息\n3. 选择免费原因并填写相关人员\n4. 确认或编辑识别结果\n5. 保存到历史记录\n6. 在"记录"页面查看和管理历史记录',
       showCancel: false
     })
   }
@@ -48,7 +48,7 @@ const Profile: React.FC = () => {
     {
       icon: 'i-mdi-information-outline',
       title: '关于我们',
-      desc: '了解智票通',
+      desc: '了解免费车登记',
       onClick: handleAbout
     }
   ]
@@ -63,8 +63,8 @@ const Profile: React.FC = () => {
               <View className="i-mdi-account text-4xl text-primary" />
             </View>
             <View className="flex-1">
-              <Text className="text-xl font-bold text-primary-foreground block mb-1">智票通用户</Text>
-              <Text className="text-sm text-primary-foreground opacity-80 block">专业的票据识别助手</Text>
+              <Text className="text-xl font-bold text-primary-foreground block mb-1">免费车登记用户</Text>
+              <Text className="text-sm text-primary-foreground opacity-80 block">专业的车辆登记助手</Text>
             </View>
           </View>
         </View>
@@ -95,7 +95,7 @@ const Profile: React.FC = () => {
           <View className="grid grid-cols-3 gap-4">
             <View className="text-center">
               <View className="i-mdi-file-document-outline text-3xl text-primary mb-2" />
-              <Text className="text-sm text-muted-foreground block">识别次数</Text>
+              <Text className="text-sm text-muted-foreground block">登记次数</Text>
               <Text className="text-lg font-bold text-foreground block mt-1">-</Text>
             </View>
             <View className="text-center">
@@ -113,8 +113,8 @@ const Profile: React.FC = () => {
 
         {/* 版权信息 */}
         <View className="mt-8 text-center">
-          <Text className="text-xs text-muted-foreground block">© 2025 智票通</Text>
-          <Text className="text-xs text-muted-foreground block mt-1">专业的车辆通行费票据识别工具</Text>
+          <Text className="text-xs text-muted-foreground block">© 2025 免费车登记</Text>
+          <Text className="text-xs text-muted-foreground block mt-1">专业的免费车辆登记管理工具</Text>
         </View>
       </View>
     </View>

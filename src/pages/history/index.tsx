@@ -95,6 +95,33 @@ const History: React.FC = () => {
     }
   }
 
+  // 查看记录详情
+  const handleViewDetail = (record: TollRecord) => {
+    if (isEditMode) {
+      toggleSelect(record.id)
+      return
+    }
+
+    // 跳转到结果页面查看详情
+    Taro.navigateTo({
+      url: `/pages/result/index?data=${encodeURIComponent(
+        JSON.stringify({
+          imageUrl: record.image_url,
+          plateNumber: record.plate_number,
+          vehicleType: record.vehicle_type,
+          axleCount: record.axle_count,
+          tonnage: record.tonnage,
+          entryInfo: record.entry_info,
+          entryTime: record.entry_time,
+          amount: record.amount,
+          freeReason: record.free_reason,
+          tollCollector: record.toll_collector,
+          monitor: record.monitor
+        })
+      )}`
+    })
+  }
+
   // 格式化时间
   const formatTime = (timeStr: string | null) => {
     if (!timeStr) return '-'
@@ -171,11 +198,7 @@ const History: React.FC = () => {
                   <View
                     key={record.id}
                     className="bg-card rounded-xl p-4 shadow-card"
-                    onClick={() => {
-                      if (isEditMode) {
-                        toggleSelect(record.id)
-                      }
-                    }}>
+                    onClick={() => handleViewDetail(record)}>
                     <View className="flex items-start gap-3">
                       {/* 选择框 */}
                       {isEditMode && (
@@ -191,8 +214,8 @@ const History: React.FC = () => {
                         </View>
                       )}
 
-                      {/* 票据图片 */}
-                      {record.image_url && (
+                      {/* 图片 */}
+                      {record.image_url && !isEditMode && (
                         <View className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                           <Image src={record.image_url} mode="aspectFill" className="w-full h-full" />
                         </View>
@@ -202,7 +225,11 @@ const History: React.FC = () => {
                       <View className="flex-1">
                         <View className="flex items-center justify-between mb-2">
                           <Text className="text-lg font-bold text-foreground">{record.plate_number || '未识别'}</Text>
-                          <Text className="text-lg font-bold text-primary">¥{record.amount?.toFixed(2) || '0.00'}</Text>
+                          {record.free_reason && (
+                            <View className="bg-primary/10 px-2 py-1 rounded">
+                              <Text className="text-xs text-primary">{record.free_reason}</Text>
+                            </View>
+                          )}
                         </View>
 
                         <View className="space-y-1">
@@ -221,6 +248,17 @@ const History: React.FC = () => {
                             <View className="flex items-center">
                               <View className="i-mdi-map-marker text-sm text-muted-foreground mr-1" />
                               <Text className="text-sm text-muted-foreground line-clamp-1">{record.entry_info}</Text>
+                            </View>
+                          )}
+
+                          {(record.toll_collector || record.monitor) && (
+                            <View className="flex items-center">
+                              <View className="i-mdi-account text-sm text-muted-foreground mr-1" />
+                              <Text className="text-sm text-muted-foreground">
+                                {record.toll_collector && `收费员: ${record.toll_collector}`}
+                                {record.toll_collector && record.monitor && ' · '}
+                                {record.monitor && `监控员: ${record.monitor}`}
+                              </Text>
                             </View>
                           )}
 

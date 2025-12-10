@@ -14,7 +14,7 @@ export interface OCRResult {
   amount?: number
 }
 
-// 从AI响应中提取票据信息
+// 从AI响应中提取车辆信息
 function parseOCRResponse(content: string): OCRResult {
   const result: OCRResult = {}
 
@@ -96,14 +96,14 @@ export async function recognizeTollReceipt(
         {
           role: 'system',
           content:
-            '你是一个专业的票据识别助手，擅长从车辆通行费票据图片中提取关键信息。请准确识别所有字段，特别注意车牌号要包含颜色和完整号码。'
+            '你是一个专业的车辆信息识别助手，擅长从车辆信息图片中提取关键信息。请准确识别所有字段，特别注意车牌号要包含颜色和完整号码。'
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: `请仔细识别这张车辆通行费票据图片，提取以下信息：
+              text: `请仔细识别这张车辆信息图片，提取以下信息：
 
 1. 车牌号：必须包含车牌颜色和完整号码（例如：蓝 鲁P233CV，黄 京A12345）
    - 车牌颜色：蓝/黄/绿/白/黑

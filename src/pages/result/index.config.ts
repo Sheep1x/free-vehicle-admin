@@ -1,3 +1,4 @@
 export default definePageConfig({
-  navigationBarTitleText: '识别结果'
+  navigationBarTitleText: '登记信息',
+  navigationStyle: 'custom'
 })

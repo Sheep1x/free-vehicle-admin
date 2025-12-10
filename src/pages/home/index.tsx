@@ -10,13 +10,13 @@ const Home: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string>('')
   const [isRecognizing, setIsRecognizing] = useState(false)
 
-  // 选择图片
+  // 选择图片（从相册）
   const handleChooseImage = async () => {
     try {
       const res = await Taro.chooseImage({
         count: 1,
         sizeType: ['compressed'],
-        sourceType: ['album', 'camera']
+        sourceType: ['album']
       })
 
       if (res.tempFilePaths && res.tempFilePaths.length > 0) {
@@ -27,6 +27,28 @@ const Home: React.FC = () => {
       console.error('选择图片失败:', error)
       Taro.showToast({
         title: '选择图片失败',
+        icon: 'none'
+      })
+    }
+  }
+
+  // 拍照
+  const handleTakePhoto = async () => {
+    try {
+      const res = await Taro.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['camera']
+      })
+
+      if (res.tempFilePaths && res.tempFilePaths.length > 0) {
+        const imagePath = res.tempFilePaths[0]
+        setSelectedImage(imagePath)
+      }
+    } catch (error) {
+      console.error('拍照失败:', error)
+      Taro.showToast({
+        title: '拍照失败',
         icon: 'none'
       })
     }
@@ -85,8 +107,8 @@ const Home: React.FC = () => {
       <View className="px-4 py-6">
         {/* 标题区域 */}
         <View className="mb-6">
-          <Text className="text-2xl font-bold text-foreground block mb-2">票据识别</Text>
-          <Text className="text-sm text-muted-foreground block">拍照或上传车辆通行费票据，自动提取关键信息</Text>
+          <Text className="text-2xl font-bold text-foreground block mb-2">免费车登记</Text>
+          <Text className="text-sm text-muted-foreground block">拍照或上传车辆信息图片，自动提取关键信息</Text>
         </View>
 
         {/* 图片预览区域 */}
@@ -104,20 +126,33 @@ const Home: React.FC = () => {
             <View className="flex flex-col items-center justify-center py-16">
               <View className="i-mdi-image-outline text-6xl text-muted-foreground mb-4" />
               <Text className="text-muted-foreground text-center">暂无图片</Text>
-              <Text className="text-muted-foreground text-sm text-center mt-2">请点击下方按钮选择图片</Text>
+              <Text className="text-muted-foreground text-sm text-center mt-2">请点击下方按钮拍照或选择图片</Text>
             </View>
           )}
         </View>
 
         {/* 操作按钮 */}
         <View className="space-y-3">
+          {/* 拍照按钮 */}
           <Button
             className="w-full bg-primary text-primary-foreground py-4 rounded-xl break-keep text-base font-medium"
+            size="default"
+            onClick={handleTakePhoto}
+            disabled={isRecognizing}>
+            <View className="flex items-center justify-center">
+              <View className="i-mdi-camera text-xl mr-2" />
+              <Text>拍照</Text>
+            </View>
+          </Button>
+
+          {/* 选择图片按钮 */}
+          <Button
+            className="w-full bg-secondary text-secondary-foreground py-4 rounded-xl break-keep text-base font-medium"
             size="default"
             onClick={handleChooseImage}
             disabled={isRecognizing}>
             <View className="flex items-center justify-center">
-              <View className="i-mdi-camera text-xl mr-2" />
+              <View className="i-mdi-image text-xl mr-2" />
               <Text>选择图片</Text>
             </View>
           </Button>
@@ -145,15 +180,17 @@ const Home: React.FC = () => {
           <View className="space-y-2">
             <View className="flex items-start">
               <Text className="text-primary mr-2">1.</Text>
-              <Text className="text-sm text-muted-foreground flex-1">点击"选择图片"按钮，从相册选择或拍摄票据照片</Text>
+              <Text className="text-sm text-muted-foreground flex-1">
+                点击"选择图片"按钮，从相册选择或拍摄车辆信息照片
+              </Text>
             </View>
             <View className="flex items-start">
               <Text className="text-primary mr-2">2.</Text>
-              <Text className="text-sm text-muted-foreground flex-1">确保票据图片清晰，光线充足，文字可辨</Text>
+              <Text className="text-sm text-muted-foreground flex-1">确保图片清晰，光线充足，文字可辨</Text>
             </View>
             <View className="flex items-start">
               <Text className="text-primary mr-2">3.</Text>
-              <Text className="text-sm text-muted-foreground flex-1">点击"开始识别"，系统将自动提取票据信息</Text>
+              <Text className="text-sm text-muted-foreground flex-1">点击"开始识别"，系统将自动提取车辆信息</Text>
             </View>
             <View className="flex items-start">
               <Text className="text-primary mr-2">4.</Text>

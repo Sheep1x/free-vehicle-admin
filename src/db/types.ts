@@ -1,4 +1,4 @@
-// 车辆通行费票据识别记录类型定义
+// 免费车登记记录类型定义
 export interface TollRecord {
   id: string
   plate_number: string | null
@@ -9,6 +9,9 @@ export interface TollRecord {
   entry_time: string | null
   amount: number | null
   image_url: string | null
+  free_reason: string | null // 免费原因
+  toll_collector: string | null // 收费员
+  monitor: string | null // 监控员
   created_at: string
 }
 
@@ -22,4 +25,7 @@ export interface CreateTollRecordInput {
   entry_time?: string
   amount?: number
   image_url?: string
+  free_reason?: string
+  toll_collector?: string
+  monitor?: string
 }

@@ -11,7 +11,7 @@ export default defineAppConfig({
     list: [
       {
         pagePath: 'pages/home/index',
-        text: '识别',
+        text: '登记',
         iconPath: './assets/images/unselected/scan.png',
         selectedIconPath: './assets/images/selected/scan.png'
       },
@@ -32,7 +32,7 @@ export default defineAppConfig({
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#1890FF',
-    navigationBarTitleText: '智票通',
+    navigationBarTitleText: '免费车登记',
     navigationBarTextStyle: 'white'
   }
 })

@@ -1,3 +1,3 @@
 export default definePageConfig({
-  navigationBarTitleText: '票据识别'
+  navigationBarTitleText: '免费车登记'
 })
