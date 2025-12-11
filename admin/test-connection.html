@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase连接测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .data-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .config-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Supabase连接诊断工具</h1>
+        
+        <div class="test-section">
+            <h3>1. 配置信息</h3>
+            <div class="config-info">
+                <p><strong>Supabase URL:</strong> <span id="config-url">加载中...</span></p>
+                <p><strong>Supabase Key:</strong> <span id="config-key">加载中...</span></p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 连接测试</h3>
+            <button onclick="testConnection()">测试连接</button>
+            <div id="connection-status" class="status loading">等待测试...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 查询 toll_records 表</h3>
+            <button onclick="testTollRecords()">查询登记记录</button>
+            <div id="records-status" class="status loading">等待查询...</div>
+            <div id="records-data" class="data-display" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 查询 toll_stations 表</h3>
+            <button onclick="testTollStations()">查询收费站</button>
+            <div id="stations-status" class="status loading">等待查询...</div>
+            <div id="stations-data" class="data-display" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. 查询 toll_groups 表</h3>
+            <button onclick="testTollGroups()">查询班组</button>
+            <div id="groups-status" class="status loading">等待查询...</div>
+            <div id="groups-data" class="data-display" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>6. 查询 toll_collectors_info 表</h3>
+            <button onclick="testTollCollectors()">查询收费员</button>
+            <div id="collectors-status" class="status loading">等待查询...</div>
+            <div id="collectors-data" class="data-display" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>7. 查询 monitors_info 表</h3>
+            <button onclick="testMonitors()">查询监控员</button>
+            <div id="monitors-status" class="status loading">等待查询...</div>
+            <div id="monitors-data" class="data-display" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>8. 查询 shift_settings 表</h3>
+            <button onclick="testShiftSettings()">查询班次设置</button>
+            <div id="shifts-status" class="status loading">等待查询...</div>
+            <div id="shifts-data" class="data-display" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>9. 一键测试所有</h3>
+            <button onclick="testAll()">运行所有测试</button>
+        </div>
+    </div>
+
+    <!-- 引入Supabase库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // 从admin.js读取配置（需要手动复制）
+        const SUPABASE_URL = 'https://backend.appmiaoda.com/projects/supabase257114593363537920'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoyMDgwNzI4MDk2LCJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwic3ViIjoiYW5vbiJ9.Wxk0iRphJzRVuqWgIZVGYL9SsC0-7JDabv4xfGAhcNw'
+
+        // 初始化Supabase客户端
+        let supabase = null
+
+        // 页面加载时显示配置
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('config-url').textContent = SUPABASE_URL
+            document.getElementById('config-key').textContent = SUPABASE_ANON_KEY.substring(0, 30) + '...'
+            
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+                console.log('Supabase客户端初始化成功')
+            } catch (error) {
+                console.error('Supabase客户端初始化失败:', error)
+                alert('Supabase客户端初始化失败: ' + error.message)
+            }
+        })
+
+        async function testConnection() {
+            const statusEl = document.getElementById('connection-status')
+            statusEl.className = 'status loading'
+            statusEl.textContent = '正在测试连接...'
+
+            try {
+                // 尝试查询一个简单的表
+                const { data, error } = await supabase.from('toll_records').select('count', { count: 'exact', head: true })
+                
+                if (error) throw error
+                
+                statusEl.className = 'status success'
+                statusEl.textContent = '✅ 连接成功！'
+            } catch (error) {
+                statusEl.className = 'status error'
+                statusEl.textContent = '❌ 连接失败: ' + error.message
+                console.error('连接测试失败:', error)
+            }
+        }
+
+        async function testTollRecords() {
+            await testTable('toll_records', 'records')
+        }
+
+        async function testTollStations() {
+            await testTable('toll_stations', 'stations')
+        }
+
+        async function testTollGroups() {
+            await testTable('toll_groups', 'groups')
+        }
+
+        async function testTollCollectors() {
+            await testTable('toll_collectors_info', 'collectors')
+        }
+
+        async function testMonitors() {
+            await testTable('monitors_info', 'monitors')
+        }
+
+        async function testShiftSettings() {
+            await testTable('shift_settings', 'shifts')
+        }
+
+        async function testTable(tableName, prefix) {
+            const statusEl = document.getElementById(`${prefix}-status`)
+            const dataEl = document.getElementById(`${prefix}-data`)
+            
+            statusEl.className = 'status loading'
+            statusEl.textContent = `正在查询 ${tableName} 表...`
+            dataEl.style.display = 'none'
+
+            try {
+                const { data, error } = await supabase
+                    .from(tableName)
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                
+                if (error) throw error
+                
+                statusEl.className = 'status success'
+                statusEl.textContent = `✅ 查询成功！找到 ${data.length} 条记录`
+                
+                if (data.length > 0) {
+                    dataEl.style.display = 'block'
+                    dataEl.textContent = JSON.stringify(data, null, 2)
+                } else {
+                    dataEl.style.display = 'block'
+                    dataEl.textContent = '表中暂无数据'
+                }
+            } catch (error) {
+                statusEl.className = 'status error'
+                statusEl.textContent = `❌ 查询失败: ${error.message}`
+                dataEl.style.display = 'block'
+                dataEl.textContent = `错误详情:\n${JSON.stringify(error, null, 2)}`
+                console.error(`查询 ${tableName} 失败:`, error)
+            }
+        }
+
+        async function testAll() {
+            await testConnection()
+            await new Promise(resolve => setTimeout(resolve, 500))
+            await testTollRecords()
+            await new Promise(resolve => setTimeout(resolve, 500))
+            await testTollStations()
+            await new Promise(resolve => setTimeout(resolve, 500))
+            await testTollGroups()
+            await new Promise(resolve => setTimeout(resolve, 500))
+            await testTollCollectors()
+            await new Promise(resolve => setTimeout(resolve, 500))
+            await testMonitors()
+            await new Promise(resolve => setTimeout(resolve, 500))
+            await testShiftSettings()
+        }
+    </script>
+</body>
+</html>

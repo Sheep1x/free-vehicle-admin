@@ -76,16 +76,28 @@ function renderCurrentTab() {
 
 async function loadRecords() {
   try {
+    console.log('开始加载登记记录...')
+    console.log('Supabase URL:', SUPABASE_URL)
+    console.log('Supabase Key (前20字符):', SUPABASE_ANON_KEY.substring(0, 20) + '...')
+    
     const { data, error } = await supabase
       .from('toll_records')
       .select('*')
       .order('created_at', { ascending: false })
     
-    if (error) throw error
+    if (error) {
+      console.error('Supabase查询错误:', error)
+      throw error
+    }
+    
+    console.log('成功加载记录数量:', data ? data.length : 0)
+    console.log('记录数据:', data)
+    
     allRecords = data || []
   } catch (error) {
     console.error('加载记录失败:', error)
-    showAlert('加载记录失败', 'error')
+    console.error('错误详情:', JSON.stringify(error, null, 2))
+    showAlert(`加载记录失败: ${error.message || '未知错误'}`, 'error')
   }
 }
 
@@ -249,15 +261,21 @@ function viewRecord(id) {
 
 async function loadStations() {
   try {
+    console.log('开始加载收费站...')
     const { data, error } = await supabase
       .from('toll_stations')
       .select('*')
       .order('created_at', { ascending: false })
     
-    if (error) throw error
+    if (error) {
+      console.error('加载收费站错误:', error)
+      throw error
+    }
+    console.log('成功加载收费站数量:', data ? data.length : 0)
     allStations = data || []
   } catch (error) {
     console.error('加载收费站失败:', error)
+    showAlert(`加载收费站失败: ${error.message || '未知错误'}`, 'error')
   }
 }
 
