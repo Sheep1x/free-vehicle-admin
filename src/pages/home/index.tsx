@@ -147,7 +147,7 @@ const Home: React.FC = () => {
 
           {/* 选择图片按钮 */}
           <Button
-            className="w-full bg-secondary text-secondary-foreground py-4 rounded-xl break-keep text-base font-medium"
+            className="w-full text-secondary-foreground py-4 rounded-xl break-keep text-base font-medium bg-[#1492ff] bg-none"
             size="default"
             onClick={handleChooseImage}
             disabled={isRecognizing}>
@@ -181,7 +181,7 @@ const Home: React.FC = () => {
             <View className="flex items-start">
               <Text className="text-primary mr-2">1.</Text>
               <Text className="text-sm text-muted-foreground flex-1">
-                点击"选择图片"按钮，从相册选择或拍摄车辆信息照片
+                点击"拍照"按钮直接拍摄，或点击"选择图片"从相册选择车辆信息照片
               </Text>
             </View>
             <View className="flex items-start">

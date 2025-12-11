@@ -153,7 +153,6 @@ const History: React.FC = () => {
           </View>
         </View>
       </View>
-
       {/* 工具栏 */}
       <View className="bg-card px-4 py-3 flex items-center justify-between border-b border-border">
         <Text className="text-sm text-muted-foreground">
@@ -182,13 +181,12 @@ const History: React.FC = () => {
           </View>
         </View>
       </View>
-
       {/* 记录列表 */}
       <View className="bg-gradient-bg">
         <ScrollView scrollY style={{background: 'transparent'}} className="h-screen">
-          <View className="px-4 py-4">
+          <View className="px-4 py-4 border-[0px] border-solid border-[#29313fff]">
             {records.length === 0 ? (
-              <View className="flex flex-col items-center justify-center py-20">
+              <View className="px-4 py-4 border-solid border-[#085df0ff] border-[0px] border-[#1492ff]">
                 <View className="i-mdi-file-document-outline text-6xl text-muted-foreground mb-4" />
                 <Text className="text-muted-foreground">暂无记录</Text>
               </View>
