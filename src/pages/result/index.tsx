@@ -253,16 +253,15 @@ const Result: React.FC = () => {
     <View className="min-h-screen bg-gradient-bg pb-6">
       {/* 自定义返回按钮 */}
       <View className="fixed top-0 left-0 z-50 px-4 py-3" onClick={handleBack}>
-        <View className="flex items-center">
-          <View className="i-mdi-chevron-left text-3xl text-white" />
+        <View className="flex items-center bg-primary rounded-full w-10 h-10 justify-center shadow-lg">
+          <View className="i-mdi-chevron-left text-3xl text-primary-foreground" />
         </View>
       </View>
-
       <View className="px-4 pt-16">
         {/* 图片 */}
         {imageUrl && (
           <View className="bg-card rounded-xl p-4 mb-6 shadow-card">
-            <Image src={imageUrl} mode="aspectFit" className="w-full rounded-lg" style={{height: '300px'}} />
+            <Image src={imageUrl} mode="aspectFit" className="w-full rounded-lg" style={{height: '200px'}} />
           </View>
         )}
 
@@ -420,7 +419,7 @@ const Result: React.FC = () => {
         {/* 操作按钮 */}
         <View className="flex gap-3">
           <Button
-            className="flex-1 bg-secondary text-secondary-foreground py-4 rounded-xl break-keep text-base"
+            className="flex-1 bg-[#1492ff] text-white py-4 rounded-xl break-keep text-base font-medium"
             size="default"
             onClick={handleReRecognize}
             disabled={isSaving || isRecognizing}>

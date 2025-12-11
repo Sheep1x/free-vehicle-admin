@@ -113,10 +113,10 @@ const Home: React.FC = () => {
         </View>
 
         {/* 图片预览区域 */}
-        <View className="bg-card rounded-xl p-4 mb-6 shadow-card">
+        <View className="bg-card rounded-xl p-4 shadow-card mb-[10px] mt-[0px]">
           {selectedImage ? (
             <View className="relative">
-              <Image src={selectedImage} mode="aspectFit" className="w-full rounded-lg" style={{height: '400px'}} />
+              <Image src={selectedImage} mode="aspectFit" className="w-full rounded-lg" style={{height: '250px'}} />
               <View
                 className="absolute top-2 right-2 bg-destructive rounded-full w-8 h-8 flex items-center justify-center"
                 onClick={() => setSelectedImage('')}>
