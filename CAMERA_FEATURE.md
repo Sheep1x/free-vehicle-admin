@@ -11,13 +11,24 @@
 **实现方式**：
 ```typescript
 const handleTakePhoto = async () => {
-  const res = await Taro.chooseImage({
+  const res = await Taro.chooseMedia({
     count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['camera']  // 仅使用摄像头
+    mediaType: ['image'],
+    sourceType: ['camera'],  // 仅使用摄像头
+    sizeType: ['compressed']
   })
+  
+  if (res.tempFiles && res.tempFiles.length > 0) {
+    const imagePath = res.tempFiles[0].tempFilePath
+    setSelectedImage(imagePath)
+  }
 }
 ```
+
+**技术说明**：
+- 使用 `Taro.chooseMedia` API（推荐）
+- 比 `Taro.chooseImage` 更可靠地唤醒相机
+- 支持微信小程序和H5环境
 
 **使用场景**：
 - 现场实时拍摄车辆信息
@@ -60,13 +71,51 @@ const handleChooseImage = async () => {
 
 ## 技术细节
 
-### 参数说明
+### API 对比
 
-| 参数 | 拍照按钮 | 选择图片按钮 |
-|------|---------|-------------|
+| API | 拍照按钮 | 选择图片按钮 |
+|-----|---------|-------------|
+| 使用API | **Taro.chooseMedia** | Taro.chooseImage |
 | count | 1 | 1 |
+| mediaType | ['image'] | - |
+| sourceType | **['camera']** | ['album'] |
 | sizeType | ['compressed'] | ['compressed'] |
-| sourceType | **['camera']** | **['album']** |
+
+### 为什么拍照使用 chooseMedia？
+
+**Taro.chooseMedia 的优势**：
+1. ✅ 更可靠地唤醒相机
+2. ✅ 更好的跨平台支持
+3. ✅ 微信小程序推荐使用
+4. ✅ 支持更多媒体类型控制
+
+**与 chooseImage 的区别**：
+- `chooseImage`：旧版API，在某些环境下可能不会直接唤醒相机
+- `chooseMedia`：新版API，专门优化了相机调用体验
+
+### 返回值处理
+
+**chooseMedia 返回值**：
+```typescript
+{
+  tempFiles: [{
+    tempFilePath: string,  // 临时文件路径
+    size: number,          // 文件大小
+    // ... 其他属性
+  }]
+}
+```
+
+**chooseImage 返回值**：
+```typescript
+{
+  tempFilePaths: string[],  // 临时文件路径数组
+  tempFiles: [{
+    path: string,
+    size: number
+  }]
+}
+```
 
 ### 关键区别
 
@@ -241,6 +290,12 @@ A:
 4. 确保文字清晰可见
 
 ## 更新日志
+
+### v2.0.1 (2025-12-10)
+- 🔧 **重要修复**：拍照按钮改用 `Taro.chooseMedia` API
+- ✅ 确保拍照按钮能可靠地唤醒相机
+- ✅ 修复拍照和选择图片功能相同的问题
+- ✅ 提升跨平台兼容性
 
 ### v2.0.0 (2025-12-10)
 - ✅ 拍照按钮独立实现

@@ -32,17 +32,18 @@ const Home: React.FC = () => {
     }
   }
 
-  // 拍照
+  // 拍照（使用 chooseMedia API 确保唤醒相机）
   const handleTakePhoto = async () => {
     try {
-      const res = await Taro.chooseImage({
+      const res = await Taro.chooseMedia({
         count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['camera']
+        mediaType: ['image'],
+        sourceType: ['camera'],
+        sizeType: ['compressed']
       })
 
-      if (res.tempFilePaths && res.tempFilePaths.length > 0) {
-        const imagePath = res.tempFilePaths[0]
+      if (res.tempFiles && res.tempFiles.length > 0) {
+        const imagePath = res.tempFiles[0].tempFilePath
         setSelectedImage(imagePath)
       }
     } catch (error) {
