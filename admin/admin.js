@@ -537,7 +537,7 @@ async function loadUsers() {
       console.error('加载用户错误:', error)
       // 如果是表不存在的错误，显示创建表的提示
       if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('表不存在')) {
-        showAlert('用户表不存在，请先创建admin_users表，用户名Sheep1x，密码Yyx19960517', 'error')
+        showAlert('用户表不存在，请联系系统管理员创建相关表结构', 'error')
       } else {
         showAlert(`加载用户失败: ${error.message || '未知错误'}`, 'error')
       }
@@ -570,30 +570,13 @@ async function initAdminUsers() {
     console.log('检查现有用户结果:', { users, usersError })
     
     if (!usersError && (!users || users.length === 0)) {
-      // 创建最高权限用户
-      const { error: superAdminError } = await window.supabase
-        .from('admin_users')
-        .insert([{
-          username: 'Sheep1x',
-          password: 'Yyx19960517',
-          role: 'super_admin'
-        }])
-      
-      if (superAdminError) {
-        console.error('创建用户失败:', superAdminError)
-        // 显示创建用户失败的提示
-        showAlert(`创建用户失败: ${superAdminError.message || '未知错误'}，请手动创建用户表和初始用户`, 'error')
-        return
-      }
-      
-      console.log('成功创建最高权限用户: Sheep1x')
-      
-      // 重新加载用户数据
-      await loadUsers()
+      console.log('系统中暂无用户，请联系系统管理员创建初始管理员账户')
+      showAlert('系统中暂无用户，请联系系统管理员创建初始管理员账户', 'warning')
+      return
     }
   } catch (error) {
     console.error('初始化用户失败:', error)
-    showAlert(`初始化用户失败: ${error.message || '未知错误'}，请手动创建用户表和初始用户`, 'error')
+    showAlert(`初始化用户失败: ${error.message || '未知错误'}，请联系系统管理员`, 'error')
   }
 }
 
