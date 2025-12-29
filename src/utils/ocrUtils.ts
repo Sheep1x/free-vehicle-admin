@@ -1,7 +1,7 @@
 import {createChatDataHandler, sendChatStream} from 'miaoda-taro-utils/chatStream'
 
 const APP_ID = process.env.TARO_APP_APP_ID || ''
-const ENDPOINT = 'https://api-integrations.appmiaoda.com/app-84zvdc9gufwh/api-2jBYdN3A9Jyz/v2/chat/completions'
+const ENDPOINT = process.env.TARO_APP_VITE_OCR_ENDPOINT || ''
 
 // OCR识别结果接口
 export interface OCRResult {
@@ -59,15 +59,15 @@ function parseOCRResponse(content: string): OCRResult {
     result.entryInfo = entryMatch[1].trim()
   }
 
-  // 使用当前时间作为通行时间（识别时的时间）
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  const hours = String(now.getHours()).padStart(2, '0')
-  const minutes = String(now.getMinutes()).padStart(2, '0')
-  const seconds = String(now.getSeconds()).padStart(2, '0')
-  result.entryTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  // 识别时间不再由OCR工具生成，改由页面在创建记录时生成
+  // const now = new Date()
+  // const year = now.getFullYear()
+  // const month = String(now.getMonth() + 1).padStart(2, '0')
+  // const day = String(now.getDate()).padStart(2, '0')
+  // const hours = String(now.getHours()).padStart(2, '0')
+  // const minutes = String(now.getMinutes()).padStart(2, '0')
+  // const seconds = String(now.getSeconds()).padStart(2, '0')
+  // result.entryTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 
   // 提取金额
   const amountMatch = content.match(/金额[:：]?\s*([\d.]+)\s*元/i) || content.match(/([\d.]+)\s*元/)

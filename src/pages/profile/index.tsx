@@ -16,7 +16,8 @@ const Profile: React.FC = () => {
   const handleAbout = () => {
     Taro.showModal({
       title: '关于免费车登记',
-      content: '通过调用AI大模型自动提取车辆信息\n提高登记效率\n响应无纸化办公。\n其实是不想手写\n \n \n开发: 杨一旭\n版本：v2.0.6',
+      content:
+        '通过调用AI大模型自动提取车辆信息\n提高登记效率\n响应无纸化办公。\n其实是不想手写\n \n \n开发: 杨一旭\n版本：v2.0.6',
       showCancel: false
     })
   }

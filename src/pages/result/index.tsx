@@ -1,24 +1,48 @@
 import {Button, Image, Input, Picker, Text, View} from '@tarojs/components'
 import Taro, {useRouter} from '@tarojs/taro'
 import type React from 'react'
-import {useCallback, useEffect, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {createTollRecord, getAllCollectors, getAllMonitors, getCurrentShift, getShiftSettings} from '@/db/api'
 import {compressImage, imageToBase64} from '@/utils/imageUtils'
 import type {OCRResult} from '@/utils/ocrUtils'
 import {recognizeTollReceipt} from '@/utils/ocrUtils'
+import {uploadImage} from '@/utils/uploadUtils'
 
 // 免费原因选项
 const FREE_REASONS = ['应急车', '军警车', '旅游包车', '紧急车']
 
+// 防抖函数
+const _debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout | null = null
+  return (...args: any[]) => {
+    if (timeout) {
+      clearTimeout(timeout)
+    }
+    timeout = setTimeout(() => {
+      func(...args)
+    }, wait)
+  }
+}
+
 const Result: React.FC = () => {
   const router = useRouter()
   const [imageUrl, setImageUrl] = useState('')
+  const [localImageUrl, setLocalImageUrl] = useState('')
   const [plateNumber, setPlateNumber] = useState('')
   const [vehicleType, setVehicleType] = useState('')
   const [axleCount, setAxleCount] = useState('')
   const [tonnage, setTonnage] = useState('')
   const [entryInfo, setEntryInfo] = useState('')
-  const [entryTime, setEntryTime] = useState('')
+  const [entryTime, setEntryTime] = useState(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  })
   const [amount, setAmount] = useState('')
   const [freeReason, setFreeReason] = useState('')
   const [tollCollector, setTollCollector] = useState('')
@@ -32,8 +56,8 @@ const Result: React.FC = () => {
   // 收费员和监控员列表
   const [collectorsList, setCollectorsList] = useState<Array<{id: string; name: string; code: string}>>([])
   const [monitorsList, setMonitorsList] = useState<Array<{id: string; name: string; code: string}>>([])
-  const [collectorIndex, setCollectorIndex] = useState(0)
-  const [monitorIndex, setMonitorIndex] = useState(0)
+  const [_collectorIndex, _setCollectorIndex] = useState(0)
+  const [_monitorIndex, _setMonitorIndex] = useState(0)
   // 搜索功能相关状态
   const [collectorSearch, setCollectorSearch] = useState('')
   const [monitorSearch, setMonitorSearch] = useState('')
@@ -42,6 +66,9 @@ const Result: React.FC = () => {
   // 过滤后的列表
   const [filteredCollectors, setFilteredCollectors] = useState<Array<{id: string; name: string; code: string}>>([])
   const [filteredMonitors, setFilteredMonitors] = useState<Array<{id: string; name: string; code: string}>>([])
+  // 下拉选项容器ref
+  const collectorOptionsRef = useRef<HTMLDivElement>(null)
+  const monitorOptionsRef = useRef<HTMLDivElement>(null)
 
   // 当前班次
   const [currentShift, setCurrentShift] = useState('')
@@ -73,25 +100,25 @@ const Result: React.FC = () => {
   }, [loadStaffData])
 
   // 处理入口信息，移除括号及其中内容
-  const processEntryInfo = (entryInfo: string) => {
-    if (!entryInfo) return '';
+  const processEntryInfo = useCallback((entryInfo: string) => {
+    if (!entryInfo) return ''
     // 移除括号及其中的内容
-    return entryInfo.replace(/\([^)]*\)/g, '').trim();
-  }
+    return entryInfo.replace(/\([^)]*\)/g, '').trim()
+  }, [])
 
   // 格式化时间，移除ISO格式的T和时区信息
-  const formatEntryTime = (time: string) => {
-    if (!time) return '';
+  const formatEntryTime = useCallback((time: string) => {
+    if (!time) return ''
     // 处理ISO格式时间字符串，去掉时区信息
     if (time.includes('+00:00')) {
-      time = time.replace('+00:00', '');
+      time = time.replace('+00:00', '')
     }
     // 处理T分隔符
     if (time.includes('T')) {
-      time = time.replace('T', ' ');
+      time = time.replace('T', ' ')
     }
-    return time;
-  }
+    return time
+  }, [])
 
   useEffect(() => {
     // 从路由参数获取识别结果
@@ -99,13 +126,27 @@ const Result: React.FC = () => {
     if (data) {
       try {
         const result = JSON.parse(decodeURIComponent(data))
-        setImageUrl(result.imageUrl || '')
+        setLocalImageUrl(result.imageUrl || '') // 保存本地路径用于重新识别
+        if (result.imageUrl) {
+          Taro.showLoading({title: '上传图片中...'})
+          uploadImage(result.imageUrl)
+            .then((publicUrl) => {
+              setImageUrl(publicUrl) // 使用云存储URL
+              Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
+            })
+            .catch(() => {
+              Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
+              Taro.showToast({title: '图片上传失败', icon: 'none'})
+              // 即使上传失败，也显示本地图片
+              setImageUrl(result.imageUrl || '')
+            })
+        }
         setPlateNumber(result.plateNumber || '')
         setVehicleType(result.vehicleType || '')
         setAxleCount(result.axleCount || '')
         setTonnage(result.tonnage || '')
         setEntryInfo(processEntryInfo(result.entryInfo || ''))
-        setEntryTime(formatEntryTime(result.entryTime || ''))
+        // setEntryTime 不再从OCR结果中获取，而是在页面加载时默认设置为当前时间
         setAmount(result.amount?.toString() || '')
         setFreeReason(result.freeReason || '')
         // 设置收费员信息，确保收费员搜索框和显示值一致
@@ -120,7 +161,7 @@ const Result: React.FC = () => {
         console.error('解析识别结果失败:', error)
       }
     }
-  }, [router.params])
+  }, [router.params, processEntryInfo])
 
   // 重新识别
   const handleReRecognize = async () => {
@@ -139,7 +180,7 @@ const Result: React.FC = () => {
 
     try {
       // 1. 压缩图片
-      const compressedPath = await compressImage(imageUrl, 0.8)
+      const compressedPath = await compressImage(localImageUrl, 0.8)
 
       // 2. 转换为Base64
       const base64Image = await imageToBase64(compressedPath)
@@ -147,7 +188,7 @@ const Result: React.FC = () => {
       // 3. 调用OCR识别
       const result: OCRResult = await recognizeTollReceipt(base64Image)
 
-      Taro.hideLoading()
+      Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
 
       // 4. 更新表单数据
       setPlateNumber(result.plateNumber || '')
@@ -155,7 +196,10 @@ const Result: React.FC = () => {
       setAxleCount(result.axleCount || '')
       setTonnage(result.tonnage || '')
       setEntryInfo(processEntryInfo(result.entryInfo || ''))
-      setEntryTime(formatEntryTime(result.entryTime || ''))
+      // 只有当result.entryTime有值时才更新entryTime，否则保留现有的时间
+      if (result.entryTime) {
+        setEntryTime(formatEntryTime(result.entryTime))
+      }
       setAmount(result.amount?.toString() || '')
 
       Taro.showToast({
@@ -164,7 +208,7 @@ const Result: React.FC = () => {
       })
     } catch (error) {
       console.error('识别失败:', error)
-      Taro.hideLoading()
+      Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
       Taro.showToast({
         title: '识别失败，请重试',
         icon: 'none'
@@ -197,16 +241,8 @@ const Result: React.FC = () => {
       title: '保存中...'
     })
 
-    // 获取当前时间作为登记时间，使用本地时间格式
-    const now = new Date();
-    // 格式化为YYYY-MM-DD HH:MM:SS格式的本地时间
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const currentTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    // 直接使用 state 中的 entryTime 作为登记时间
+    const currentTime = entryTime
 
     try {
       const record = await createTollRecord({
@@ -223,7 +259,7 @@ const Result: React.FC = () => {
         monitor: monitor
       })
 
-      Taro.hideLoading()
+      Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
 
       if (record) {
         Taro.showToast({
@@ -245,7 +281,7 @@ const Result: React.FC = () => {
       }
     } catch (error) {
       console.error('保存记录失败:', error)
-      Taro.hideLoading()
+      Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
       Taro.showToast({
         title: '保存失败，请重试',
         icon: 'none'
@@ -267,30 +303,44 @@ const Result: React.FC = () => {
     setFreeReason(FREE_REASONS[index])
   }
 
-  // 过滤收费员列表
+  // 过滤收费员列表（带防抖）
   useEffect(() => {
-    if (collectorSearch.trim() === '') {
-      setFilteredCollectors(collectorsList)
-    } else {
-      const searchTerm = collectorSearch.toLowerCase()
-      setFilteredCollectors(collectorsList.filter(item => 
-        item.name.toLowerCase().includes(searchTerm) || 
-        item.code.toLowerCase().includes(searchTerm)
-      ))
+    const filterCollectors = () => {
+      if (collectorSearch.trim() === '') {
+        setFilteredCollectors(collectorsList)
+      } else {
+        const searchTerm = collectorSearch.toLowerCase()
+        setFilteredCollectors(
+          collectorsList.filter(
+            (item) => item.name.toLowerCase().includes(searchTerm) || item.code.toLowerCase().includes(searchTerm)
+          )
+        )
+      }
     }
+
+    // 防抖处理，延迟300ms执行过滤
+    const timer = setTimeout(filterCollectors, 300)
+    return () => clearTimeout(timer)
   }, [collectorSearch, collectorsList])
 
-  // 过滤监控员列表
+  // 过滤监控员列表（带防抖）
   useEffect(() => {
-    if (monitorSearch.trim() === '') {
-      setFilteredMonitors(monitorsList)
-    } else {
-      const searchTerm = monitorSearch.toLowerCase()
-      setFilteredMonitors(monitorsList.filter(item => 
-        item.name.toLowerCase().includes(searchTerm) || 
-        item.code.toLowerCase().includes(searchTerm)
-      ))
+    const filterMonitors = () => {
+      if (monitorSearch.trim() === '') {
+        setFilteredMonitors(monitorsList)
+      } else {
+        const searchTerm = monitorSearch.toLowerCase()
+        setFilteredMonitors(
+          monitorsList.filter(
+            (item) => item.name.toLowerCase().includes(searchTerm) || item.code.toLowerCase().includes(searchTerm)
+          )
+        )
+      }
     }
+
+    // 防抖处理，延迟300ms执行过滤
+    const timer = setTimeout(filterMonitors, 300)
+    return () => clearTimeout(timer)
   }, [monitorSearch, monitorsList])
 
   // 收费员选择
@@ -311,9 +361,21 @@ const Result: React.FC = () => {
 
   // 点击外部关闭下拉选项
   useEffect(() => {
-    const handleClickOutside = () => {
-      setShowCollectorOptions(false)
-      setShowMonitorOptions(false)
+    const handleClickOutside = (e) => {
+      const collectorOptionsEl = collectorOptionsRef.current
+      const monitorOptionsEl = monitorOptionsRef.current
+
+      // 检查点击是否发生在下拉选项外部
+      const isClickOutsideCollector = collectorOptionsEl && !collectorOptionsEl.contains(e.target)
+      const isClickOutsideMonitor = monitorOptionsEl && !monitorOptionsEl.contains(e.target)
+
+      // 检查点击是否发生在输入框外部
+      const isClickOutsideInput = e.target.tagName !== 'INPUT' && !e.target.closest('.bg-input')
+
+      if (isClickOutsideCollector && isClickOutsideMonitor && isClickOutsideInput) {
+        setShowCollectorOptions(false)
+        setShowMonitorOptions(false)
+      }
     }
 
     document.addEventListener('click', handleClickOutside)
@@ -444,93 +506,115 @@ const Result: React.FC = () => {
               <View className="flex-1 relative">
                 <Text className="text-sm text-muted-foreground mb-2 block">收费员</Text>
                 <View className="relative">
-                  <View 
-                    className="bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer"
+                  <View
+                    className={`bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer border ${showCollectorOptions ? 'border-primary' : 'border-transparent'} transition-all duration-200`}
                     onClick={(e) => {
-                      e.stopPropagation();
-                      setShowCollectorOptions(!showCollectorOptions);
-                      setShowMonitorOptions(false);
-                    }}
-                  >
+                      e.stopPropagation()
+                      setShowCollectorOptions(!showCollectorOptions)
+                      setShowMonitorOptions(false)
+                    }}>
                     <Input
-                      className="w-full text-foreground text-sm"
+                      className="w-full text-foreground text-sm focus:outline-none"
                       value={collectorSearch}
                       onInput={(e) => {
-                        setCollectorSearch(e.detail.value);
-                        setShowCollectorOptions(true);
+                        setCollectorSearch(e.detail.value)
+                        setShowCollectorOptions(true)
                       }}
                       placeholder="请输入或选择收费员"
                       onClick={(e) => {
-                        e.stopPropagation();
-                        setShowCollectorOptions(true);
-                        setShowMonitorOptions(false);
+                        e.stopPropagation()
+                        setShowCollectorOptions(true)
+                        setShowMonitorOptions(false)
                       }}
                     />
-                    <View className="i-mdi-chevron-down text-lg text-muted-foreground" />
+                    <View
+                      className={`i-mdi-chevron-down text-lg text-muted-foreground transition-transform duration-200 ${showCollectorOptions ? 'rotate-180' : ''}`}
+                    />
                   </View>
                   {/* 下拉选项 */}
-                  {showCollectorOptions && filteredCollectors.length > 0 && (
-                    <View 
-                      className="absolute top-full left-0 right-0 bg-input rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto z-10"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {filteredCollectors.map((collector, index) => (
-                        <View 
-                          key={collector.id}
-                          className="px-3 py-2 hover:bg-secondary cursor-pointer text-sm"
-                          onClick={() => handleCollectorSelect(collector)}
-                        >
-                          <Text className="text-foreground">{collector.code} {collector.name}</Text>
+                  {showCollectorOptions && (
+                    <View
+                      ref={collectorOptionsRef}
+                      className="absolute bottom-full left-0 right-0 bg-white rounded-lg shadow-xl mb-1 max-h-48 overflow-y-auto z-50 border border-gray-200 transition-all duration-200"
+                      onClick={(e) => e.stopPropagation()}>
+                      {filteredCollectors.length > 0 ? (
+                        filteredCollectors.map((collector, _index) => {
+                          const isSelected = collectorSearch === `${collector.code} ${collector.name}`
+                          return (
+                            <View
+                              key={collector.id}
+                              className={`px-4 py-3 cursor-pointer text-sm transition-all duration-150 ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-gray-50'}`}
+                              onClick={() => handleCollectorSelect(collector)}>
+                              <Text className={isSelected ? 'text-primary font-medium' : 'text-gray-800'}>
+                                {collector.code} {collector.name}
+                              </Text>
+                            </View>
+                          )
+                        })
+                      ) : (
+                        <View className="px-4 py-4 text-center text-sm text-gray-500">
+                          <Text>未找到匹配的收费员</Text>
                         </View>
-                      ))}
+                      )}
                     </View>
                   )}
                 </View>
               </View>
-              
+
               {/* 监控员 */}
               <View className="flex-1 relative">
                 <Text className="text-sm text-muted-foreground mb-2 block">监控员</Text>
                 <View className="relative">
-                  <View 
-                    className="bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer"
+                  <View
+                    className={`bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer border ${showMonitorOptions ? 'border-primary' : 'border-transparent'} transition-all duration-200`}
                     onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMonitorOptions(!showMonitorOptions);
-                      setShowCollectorOptions(false);
-                    }}
-                  >
+                      e.stopPropagation()
+                      setShowMonitorOptions(!showMonitorOptions)
+                      setShowCollectorOptions(false)
+                    }}>
                     <Input
-                      className="w-full text-foreground text-sm"
+                      className="w-full text-foreground text-sm focus:outline-none"
                       value={monitorSearch}
                       onInput={(e) => {
-                        setMonitorSearch(e.detail.value);
-                        setShowMonitorOptions(true);
+                        setMonitorSearch(e.detail.value)
+                        setShowMonitorOptions(true)
                       }}
                       placeholder="请输入或选择监控员"
                       onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMonitorOptions(true);
-                        setShowCollectorOptions(false);
+                        e.stopPropagation()
+                        setShowMonitorOptions(true)
+                        setShowCollectorOptions(false)
                       }}
                     />
-                    <View className="i-mdi-chevron-down text-lg text-muted-foreground" />
+                    <View
+                      className={`i-mdi-chevron-down text-lg text-muted-foreground transition-transform duration-200 ${showMonitorOptions ? 'rotate-180' : ''}`}
+                    />
                   </View>
                   {/* 下拉选项 */}
-                  {showMonitorOptions && filteredMonitors.length > 0 && (
-                    <View 
-                      className="absolute top-full left-0 right-0 bg-input rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto z-10"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {filteredMonitors.map((monitor, index) => (
-                        <View 
-                          key={monitor.id}
-                          className="px-3 py-2 hover:bg-secondary cursor-pointer text-sm"
-                          onClick={() => handleMonitorSelect(monitor)}
-                        >
-                          <Text className="text-foreground">{monitor.code} {monitor.name}</Text>
+                  {showMonitorOptions && (
+                    <View
+                      ref={monitorOptionsRef}
+                      className="absolute bottom-full left-0 right-0 bg-white rounded-lg shadow-xl mb-1 max-h-48 overflow-y-auto z-50 border border-gray-200 transition-all duration-200"
+                      onClick={(e) => e.stopPropagation()}>
+                      {filteredMonitors.length > 0 ? (
+                        filteredMonitors.map((monitor, _index) => {
+                          const isSelected = monitorSearch === `${monitor.code} ${monitor.name}`
+                          return (
+                            <View
+                              key={monitor.id}
+                              className={`px-4 py-3 cursor-pointer text-sm transition-all duration-150 ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-gray-50'}`}
+                              onClick={() => handleMonitorSelect(monitor)}>
+                              <Text className={isSelected ? 'text-primary font-medium' : 'text-gray-800'}>
+                                {monitor.code} {monitor.name}
+                              </Text>
+                            </View>
+                          )
+                        })
+                      ) : (
+                        <View className="px-4 py-4 text-center text-sm text-gray-500">
+                          <Text>未找到匹配的监控员</Text>
                         </View>
-                      ))}
+                      )}
                     </View>
                   )}
                 </View>

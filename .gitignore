@@ -41,3 +41,10 @@ output/
 .sync
 history/*.json
 .vite_cache
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+!.edgeone/project.json
+.tef_dist/*
+  
