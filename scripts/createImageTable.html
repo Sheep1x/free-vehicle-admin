@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建toll_record_images表</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        h1 {
+            color: #333;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .sql-code {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin: 20px 0;
+        }
+        .step {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        .step h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>创建toll_record_images表</h1>
+        
+        <h2>操作步骤：</h2>
+        <div class="step">
+            <h3>步骤1：登录Supabase Dashboard</h3>
+            <p>访问：<a href="https://app.supabase.com/project/codvnervcuxohwtxotpn/sql" target="_blank">https://app.supabase.com/project/codvnervcuxohwtxotpn/sql</a></p>
+            <p>如果需要登录，使用您的Supabase账号</p>
+        </div>
+        
+        <div class="step">
+            <h3>步骤2：执行SQL语句</h3>
+            <p>复制以下SQL语句，粘贴到Supabase Dashboard的SQL编辑器中，然后点击"Run"按钮执行：</p>
+            
+            <div class="sql-code">
+                <pre id="sql-code"></pre>
+            </div>
+            
+            <button class="btn" onclick="copySQL()">复制SQL语句</button>
+        </div>
+        
+        <div class="step">
+            <h3>步骤3：验证表是否创建成功</h3>
+            <p>点击下方按钮验证表是否已成功创建：</p>
+            <button class="btn" onclick="verifyTable()">验证表</button>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <!-- 引入Supabase JS库 -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // Supabase配置
+        const SUPABASE_URL = 'https://codvnervcuxohwtxotpn.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZHZuZXJ2Y3V4b2h3dHhvdHBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MTg0MjQsImV4cCI6MjA4MTA5NDQyNH0.FrxgBbqYWmlhrSKZPLtZzn1DMcVEwyGTHs4mKYUuUTQ';
+        
+        // 初始化Supabase客户端
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // 修复后的SQL语句
+        const createTableSQL = `-- 创建toll_record_images表
+CREATE TABLE IF NOT EXISTS toll_record_images (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  record_id UUID REFERENCES toll_records(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  file_format TEXT NOT NULL,
+  uploader TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_toll_record_images_record_id ON toll_record_images(record_id);
+CREATE INDEX IF NOT EXISTS idx_toll_record_images_created_at ON toll_record_images(created_at);
+CREATE INDEX IF NOT EXISTS idx_toll_record_images_file_format ON toll_record_images(file_format);
+
+-- 创建更新触发器函数
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 创建触发器
+CREATE TRIGGER update_toll_record_images_updated_at 
+BEFORE UPDATE ON toll_record_images 
+FOR EACH ROW 
+EXECUTE FUNCTION update_updated_at_column();`;
+        
+        // 显示SQL代码
+        document.getElementById('sql-code').textContent = createTableSQL;
+        
+        // 复制SQL语句到剪贴板
+        async function copySQL() {
+            try {
+                await navigator.clipboard.writeText(createTableSQL);
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = '<p class="success">✅ SQL语句已成功复制到剪贴板！</p>';
+            } catch (err) {
+                console.error('复制失败:', err);
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = '<p class="error">❌ 复制失败，请手动复制SQL语句。</p>';
+            }
+        }
+        
+        // 验证表是否存在
+        async function verifyTable() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>正在验证表是否存在...</p>';
+            
+            try {
+                // 尝试查询表
+                const { data, error } = await supabase
+                    .from('toll_record_images')
+                    .select('*')
+                    .limit(1);
+                
+                if (!error) {
+                    resultDiv.innerHTML = '<p class="success">✅ 表已成功创建！</p>';
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ 表不存在或创建失败！</p>
+                        <p>错误信息：${error.message}</p>
+                        <p>请按照步骤1和步骤2，手动在Supabase Dashboard中执行SQL语句。</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ 验证失败：${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -14,3 +14,16 @@ export interface TollRecord {
   monitor: string
   created_at: string
 }
+
+// 收费记录图片类型
+export interface TollRecordImage {
+  id: string
+  record_id: string
+  image_url: string
+  file_name: string
+  file_size: number
+  file_format: string
+  uploader: string
+  created_at: string
+  updated_at: string
+}

@@ -103,7 +103,7 @@ function isToday(dateStr) {
   
   try {
     const date = new Date(dateStr);
-    const result = date.toDateString() === todayCache.toDateString();
+    const result = date.toDateString() === todayCache.toDateString;
     
     // 将结果存入缓存
     dateFormatCache.set(cacheKey, result);
@@ -143,3 +143,70 @@ document.getElementById('modal').addEventListener('click', (e) => {
     closeModal()
   }
 })
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+  if (bytes === 0) return '未知大小';
+  
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 显示加载状态
+function showLoading() {
+  const loadingHTML = `
+    <div class="loading-backdrop">
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载中...</div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', loadingHTML);
+  document.body.style.overflow = 'hidden';
+}
+
+// 隐藏加载状态
+function hideLoading() {
+  const backdrop = document.querySelector('.loading-backdrop');
+  if (backdrop) {
+    backdrop.remove();
+    document.body.style.overflow = '';
+  }
+}
+
+// 暴露到全局作用域
+window.showLoading = showLoading;
+window.hideLoading = hideLoading;
+
+// 显示图片模态框
+function showImageModal(imageUrl) {
+  const modalHTML = `
+    <div class="modal-backdrop" onclick="hideImageModal()">
+      <div class="image-modal" onclick="event.stopPropagation()">
+        <button class="image-modal-close" onclick="hideImageModal()">&times;</button>
+        <img src="${imageUrl}" alt="大图预览" class="image-modal-preview" />
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  document.body.style.overflow = 'hidden';
+}
+
+// 隐藏图片模态框
+function hideImageModal() {
+  const backdrop = document.querySelector('.modal-backdrop');
+  if (backdrop) {
+    backdrop.remove();
+    document.body.style.overflow = '';
+  }
+}
+
+// 暴露到全局作用域
+window.showImageModal = showImageModal;
+window.hideImageModal = hideImageModal;

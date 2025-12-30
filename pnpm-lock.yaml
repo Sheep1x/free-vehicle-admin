@@ -50,6 +50,9 @@ importers:
       '@tarojs/taro':
         specifier: 4.1.5
         version: 4.1.5(@tarojs/components@4.1.5(@tarojs/helper@4.1.5)(@types/react@18.3.24)(postcss@8.5.6)(rollup@3.29.5)(vue@3.5.21(typescript@5.9.2))(webpack@5.91.0(@swc/core@1.3.96)))(@tarojs/helper@4.1.5)(@tarojs/shared@4.1.5)(@types/react@18.3.24)(postcss@8.5.6)(rollup@3.29.5)(vue@3.5.21(typescript@5.9.2))(webpack@5.91.0(@swc/core@1.3.96))
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       immer:
         specifier: ^10.1.1
         version: 10.1.3
@@ -3196,6 +3199,10 @@ packages:
 
   dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
+
+  dotenv@17.2.3:
+    resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
     engines: {node: '>=12'}
 
   download-git-repo@3.0.2:
@@ -8972,6 +8979,8 @@ snapshots:
       dotenv: 16.6.1
 
   dotenv@16.6.1: {}
+
+  dotenv@17.2.3: {}
 
   download-git-repo@3.0.2:
     dependencies:

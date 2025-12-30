@@ -127,20 +127,7 @@ const Result: React.FC = () => {
       try {
         const result = JSON.parse(decodeURIComponent(data))
         setLocalImageUrl(result.imageUrl || '') // 保存本地路径用于重新识别
-        if (result.imageUrl) {
-          Taro.showLoading({title: '上传图片中...'})
-          uploadImage(result.imageUrl)
-            .then((publicUrl) => {
-              setImageUrl(publicUrl) // 使用云存储URL
-              Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
-            })
-            .catch(() => {
-              Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
-              Taro.showToast({title: '图片上传失败', icon: 'none'})
-              // 即使上传失败，也显示本地图片
-              setImageUrl(result.imageUrl || '')
-            })
-        }
+        setImageUrl(result.imageUrl || '') // 直接使用本地URL，保存时再上传
         setPlateNumber(result.plateNumber || '')
         setVehicleType(result.vehicleType || '')
         setAxleCount(result.axleCount || '')
@@ -245,6 +232,19 @@ const Result: React.FC = () => {
     const currentTime = entryTime
 
     try {
+      let recordImageUrl = imageUrl;
+      
+      // 如果是本地图片，在保存时上传到云存储
+      if (recordImageUrl && (recordImageUrl.startsWith('http://') || recordImageUrl.startsWith('https://'))) {
+        // 已有云存储URL，直接使用
+      } else if (localImageUrl) {
+        // 上传图片到云存储
+        Taro.showLoading({
+          title: '上传图片中...'
+        })
+        recordImageUrl = await uploadImage(localImageUrl);
+      }
+
       const record = await createTollRecord({
         plate_number: plateNumber,
         vehicle_type: vehicleType,
@@ -253,7 +253,7 @@ const Result: React.FC = () => {
         entry_info: entryInfo,
         entry_time: currentTime, // 使用当前时间作为登记时间
         amount: amount ? Number.parseFloat(amount) : undefined,
-        image_url: imageUrl,
+        image_url: recordImageUrl,
         free_reason: freeReason,
         toll_collector: tollCollector,
         monitor: monitor
@@ -262,6 +262,26 @@ const Result: React.FC = () => {
       Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
 
       if (record) {
+        // 如果有图片，保存图片记录
+        if (localImageUrl) {
+          // 获取图片文件信息
+          const fileInfo = await Taro.getFileInfo({
+            filePath: localImageUrl
+          });
+          
+          // 微信小程序中不支持File API，直接上传图片路径
+          import('@/db/api').then(api => {
+            // 由于微信小程序限制，我们直接保存本地图片信息，不使用File API
+            api.uploadRecordImage(record.id, localImageUrl, tollCollector)
+              .then(() => {
+                console.log('图片记录保存成功');
+              })
+              .catch(error => {
+                console.error('保存图片记录失败:', error);
+              });
+          });
+        }
+
         Taro.showToast({
           title: '保存成功',
           icon: 'success'

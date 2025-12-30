@@ -289,50 +289,112 @@ function viewRecord(id) {
   const record = allRecords.find(r => r.id === id)
   if (!record) return
   
-  const modalBody = `
-    <div class="form-group">
-      <label>车牌号</label>
-      <input type="text" value="${record.plate_number || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>免费原因</label>
-      <input type="text" value="${record.free_reason || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>车型</label>
-      <input type="text" value="${record.vehicle_type || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>轴数</label>
-      <input type="text" value="${record.axle_count || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>吨位</label>
-      <input type="text" value="${record.tonnage || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>入口信息</label>
-      <input type="text" value="${record.entry_info || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>收费员</label>
-      <input type="text" value="${record.toll_collector || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>监控员</label>
-      <input type="text" value="${record.monitor || ''}" readonly />
-    </div>
-    <div class="form-group">
-      <label>金额</label>
-      <input type="text" value="${record.amount || 0} 元" readonly />
-    </div>
-    <div class="form-group">
-      <label>登记时间</label>
-      <input type="text" value="${formatDateTime(record.created_at)}" readonly />
-    </div>
-  `
+  // 显示加载状态
+  showLoading();
   
-  showModal('查看记录详情', modalBody, null)
+  // 获取记录图片
+  window.supabase
+    .from('toll_record_images')
+    .select('*')
+    .eq('record_id', id)
+    .order('created_at', { ascending: true })
+    .then(({ data: images, error }) => {
+      if (error) {
+        console.error('获取记录图片失败:', error);
+        images = [];
+      }
+      
+      hideLoading();
+      
+      const modalBody = `
+        <div class="form-group">
+          <label>车牌号</label>
+          <input type="text" value="${record.plate_number || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>免费原因</label>
+          <input type="text" value="${record.free_reason || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>车型</label>
+          <input type="text" value="${record.vehicle_type || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>轴数</label>
+          <input type="text" value="${record.axle_count || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>吨位</label>
+          <input type="text" value="${record.tonnage || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>入口信息</label>
+          <input type="text" value="${record.entry_info || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>收费员</label>
+          <input type="text" value="${record.toll_collector || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>监控员</label>
+          <input type="text" value="${record.monitor || ''}" readonly />
+        </div>
+        <div class="form-group">
+          <label>金额</label>
+          <input type="text" value="${record.amount || 0} 元" readonly />
+        </div>
+        <div class="form-group">
+          <label>登记时间</label>
+          <input type="text" value="${formatDateTime(record.created_at)}" readonly />
+        </div>
+        <div class="form-group">
+          <label>识别图片</label>
+          <div class="record-images-container">
+            ${(() => {
+              // 过滤掉微信小程序本地路径
+              const validImages = images.filter(image => !image.image_url.startsWith('wxfile://'));
+              if (validImages.length > 0) {
+                return `
+                  <div class="record-images-grid">
+                    ${validImages.map(image => `
+                      <div class="record-image-item">
+                        <img src="${image.image_url}" alt="记录图片" class="record-image" onclick="showImageModal('${image.image_url}')" />
+                      </div>
+                    `).join('')}
+                  </div>
+                `;
+              } else if (images.length > 0) {
+                // 有图片但都是微信小程序本地路径
+                return `
+                  <div class="empty-images">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                      <polyline points="21 15 16 10 5 21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <p>图片仅在微信小程序中可用</p>
+                  </div>
+                `;
+              } else {
+                // 没有图片
+                return `
+                  <div class="empty-images">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                      <polyline points="21 15 16 10 5 21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <p>暂无识别图片</p>
+                  </div>
+                `;
+              }
+            })()}
+          </div>
+        </div>
+      `
+      
+      showModal('查看记录详情', modalBody, null)
+    });
 }
 
 // ==================== 导出功能 ====================

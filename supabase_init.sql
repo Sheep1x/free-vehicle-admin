@@ -94,7 +94,20 @@ CREATE TABLE IF NOT EXISTS toll_records (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- ==================== 9. 创建索引 ====================
+-- ==================== 9. 创建登记记录图片表 ====================
+CREATE TABLE IF NOT EXISTS toll_record_images (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  record_id UUID REFERENCES toll_records(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  file_format TEXT NOT NULL,
+  uploader TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- ==================== 10. 创建索引 ====================
 -- 分公司表索引
 CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name);
 CREATE INDEX IF NOT EXISTS idx_companies_code ON companies(code);
@@ -127,6 +140,11 @@ CREATE INDEX IF NOT EXISTS idx_admin_users_role ON admin_users(role);
 CREATE INDEX IF NOT EXISTS idx_toll_records_plate_number ON toll_records(plate_number);
 CREATE INDEX IF NOT EXISTS idx_toll_records_created_at ON toll_records(created_at);
 CREATE INDEX IF NOT EXISTS idx_toll_records_toll_collector ON toll_records(toll_collector);
+
+-- 登记记录图片表索引
+CREATE INDEX IF NOT EXISTS idx_toll_record_images_record_id ON toll_record_images(record_id);
+CREATE INDEX IF NOT EXISTS idx_toll_record_images_created_at ON toll_record_images(created_at);
+CREATE INDEX IF NOT EXISTS idx_toll_record_images_file_format ON toll_record_images(file_format);
 
 -- ==================== 10. 插入初始数据 ====================
 -- 插入分公司数据
@@ -226,7 +244,7 @@ BEGIN
     SELECT table_name 
     FROM information_schema.tables 
     WHERE table_schema = 'public' 
-    AND table_name IN ('companies', 'toll_stations', 'toll_groups', 'toll_collectors_info', 'monitors_info', 'shift_settings', 'admin_users', 'toll_records')
+    AND table_name IN ('companies', 'toll_stations', 'toll_groups', 'toll_collectors_info', 'monitors_info', 'shift_settings', 'admin_users', 'toll_records', 'toll_record_images')
   LOOP 
     EXECUTE format('CREATE TRIGGER update_%I_updated_at 
                    BEFORE UPDATE ON %I 

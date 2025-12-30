@@ -39,6 +39,7 @@
     "@tarojs/runtime": "4.1.5",
     "@tarojs/shared": "4.1.5",
     "@tarojs/taro": "4.1.5",
+    "dotenv": "^17.2.3",
     "immer": "^10.1.1",
     "miaoda-auth-taro": "0.0.8",
     "miaoda-sc-plugin": "1.0.31",
