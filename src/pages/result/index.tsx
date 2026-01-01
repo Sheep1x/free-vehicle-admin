@@ -2,7 +2,15 @@ import {Button, Image, Input, Picker, Text, View} from '@tarojs/components'
 import Taro, {useRouter} from '@tarojs/taro'
 import type React from 'react'
 import {useCallback, useEffect, useRef, useState} from 'react'
-import {createTollRecord, getAllCollectors, getAllMonitors, getCurrentShift, getShiftSettings} from '@/db/api'
+import AuthGuard from '@/components/AuthGuard'
+import {
+  createTollRecord,
+  getAccessibleCollectors,
+  getAccessibleMonitors,
+  getCurrentShift,
+  getShiftSettings
+} from '@/db/api'
+import {useAuthStore} from '@/store/auth'
 import {compressImage, imageToBase64} from '@/utils/imageUtils'
 import type {OCRResult} from '@/utils/ocrUtils'
 import {recognizeTollReceipt} from '@/utils/ocrUtils'
@@ -73,12 +81,20 @@ const Result: React.FC = () => {
   // 当前班次
   const [currentShift, setCurrentShift] = useState('')
 
-  // 加载收费员和监控员列表
+  // 获取当前登录用户
+  const {user} = useAuthStore()
+
+  // 加载收费员和监控员列表（基于当前用户权限）
   const loadStaffData = useCallback(async () => {
     try {
+      if (!user?.id) {
+        console.error('用户未登录，无法加载人员数据')
+        return
+      }
+
       const [collectors, monitors, shifts] = await Promise.all([
-        getAllCollectors(),
-        getAllMonitors(),
+        getAccessibleCollectors(user.id),
+        getAccessibleMonitors(user.id),
         getShiftSettings()
       ])
 
@@ -93,7 +109,7 @@ const Result: React.FC = () => {
     } catch (error) {
       console.error('加载人员数据失败:', error)
     }
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
     loadStaffData()
@@ -232,8 +248,8 @@ const Result: React.FC = () => {
     const currentTime = entryTime
 
     try {
-      let recordImageUrl = imageUrl;
-      
+      let recordImageUrl = imageUrl
+
       // 如果是本地图片，在保存时上传到云存储
       if (recordImageUrl && (recordImageUrl.startsWith('http://') || recordImageUrl.startsWith('https://'))) {
         // 已有云存储URL，直接使用
@@ -242,7 +258,7 @@ const Result: React.FC = () => {
         Taro.showLoading({
           title: '上传图片中...'
         })
-        recordImageUrl = await uploadImage(localImageUrl);
+        recordImageUrl = await uploadImage(localImageUrl)
       }
 
       const record = await createTollRecord({
@@ -265,21 +281,22 @@ const Result: React.FC = () => {
         // 如果有图片，保存图片记录
         if (localImageUrl) {
           // 获取图片文件信息
-          const fileInfo = await Taro.getFileInfo({
+          const _fileInfo = await Taro.getFileInfo({
             filePath: localImageUrl
-          });
-          
+          })
+
           // 微信小程序中不支持File API，直接上传图片路径
-          import('@/db/api').then(api => {
+          import('@/db/api').then((api) => {
             // 由于微信小程序限制，我们直接保存本地图片信息，不使用File API
-            api.uploadRecordImage(record.id, localImageUrl, tollCollector)
+            api
+              .uploadRecordImage(record.id, localImageUrl, tollCollector)
               .then(() => {
-                console.log('图片记录保存成功');
+                console.log('图片记录保存成功')
               })
-              .catch(error => {
-                console.error('保存图片记录失败:', error);
-              });
-          });
+              .catch((error) => {
+                console.error('保存图片记录失败:', error)
+              })
+          })
         }
 
         Taro.showToast({
@@ -405,290 +422,296 @@ const Result: React.FC = () => {
   }, [])
 
   return (
-    <View className="min-h-screen bg-gradient-bg pb-6">
-      {/* 自定义返回按钮 */}
-      <View className="fixed top-10 left-0 z-50 px-4 py-3" onClick={handleBack}>
-        <View className="flex items-center bg-primary rounded-full w-10 h-10 justify-center shadow-lg">
-          <View className="i-mdi-chevron-left text-3xl text-primary-foreground" />
+    <AuthGuard>
+      <View className="min-h-screen bg-gradient-bg pb-6">
+        {/* 自定义返回按钮 */}
+        <View className="fixed top-10 left-0 z-50 px-4 py-3" onClick={handleBack}>
+          <View className="flex items-center bg-primary rounded-full w-10 h-10 justify-center shadow-lg">
+            <View className="i-mdi-chevron-left text-3xl text-primary-foreground" />
+          </View>
         </View>
-      </View>
-      <View className="px-4 pt-16">
-        {/* 图片 */}
-        {imageUrl && (
+        <View className="px-4 pt-16">
+          {/* 图片 */}
+          {imageUrl && (
+            <View className="bg-card rounded-xl p-4 mb-6 shadow-card">
+              <Image src={imageUrl} mode="aspectFit" className="w-full rounded-lg" style={{height: '200px'}} />
+            </View>
+          )}
+
+          {/* 识别结果 */}
           <View className="bg-card rounded-xl p-4 mb-6 shadow-card">
-            <Image src={imageUrl} mode="aspectFit" className="w-full rounded-lg" style={{height: '200px'}} />
-          </View>
-        )}
-
-        {/* 识别结果 */}
-        <View className="bg-card rounded-xl p-4 mb-6 shadow-card">
-          <View className="flex items-center mb-4">
-            <View className="i-mdi-file-document-outline text-2xl text-primary mr-2" />
-            <Text className="text-lg font-bold text-foreground">识别结果</Text>
-          </View>
-
-          <View className="space-y-4">
-            {/* 车牌号 */}
-            <View>
-              <Text className="text-sm text-muted-foreground mb-2 block">车牌号（含颜色）</Text>
-              <View className="bg-input rounded-lg px-3 py-2">
-                <Input
-                  className="w-full text-foreground"
-                  value={plateNumber}
-                  onInput={(e) => setPlateNumber(e.detail.value)}
-                  placeholder="如：蓝 鲁P233CV"
-                />
-              </View>
+            <View className="flex items-center mb-4">
+              <View className="i-mdi-file-document-outline text-2xl text-primary mr-2" />
+              <Text className="text-lg font-bold text-foreground">识别结果</Text>
             </View>
 
-            {/* 车型 */}
-            <View>
-              <Text className="text-sm text-muted-foreground mb-2 block">车型</Text>
-              <View className="bg-input rounded-lg px-3 py-2">
-                <Input
-                  className="w-full text-foreground"
-                  value={vehicleType}
-                  onInput={(e) => setVehicleType(e.detail.value)}
-                  placeholder="请输入车型"
-                />
-              </View>
-            </View>
-
-            {/* 轴数和吨位 */}
-            <View className="flex gap-3">
-              <View className="flex-1">
-                <Text className="text-sm text-muted-foreground mb-2 block">轴数</Text>
+            <View className="space-y-4">
+              {/* 车牌号 */}
+              <View>
+                <Text className="text-sm text-muted-foreground mb-2 block">车牌号（含颜色）</Text>
                 <View className="bg-input rounded-lg px-3 py-2">
                   <Input
                     className="w-full text-foreground"
-                    value={axleCount}
-                    onInput={(e) => setAxleCount(e.detail.value)}
-                    placeholder="如：2轴"
+                    value={plateNumber}
+                    onInput={(e) => setPlateNumber(e.detail.value)}
+                    placeholder="如：蓝 鲁P233CV"
                   />
                 </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-sm text-muted-foreground mb-2 block">吨位</Text>
+
+              {/* 车型 */}
+              <View>
+                <Text className="text-sm text-muted-foreground mb-2 block">车型</Text>
                 <View className="bg-input rounded-lg px-3 py-2">
                   <Input
                     className="w-full text-foreground"
-                    value={tonnage}
-                    onInput={(e) => setTonnage(e.detail.value)}
-                    placeholder="如：1.26吨"
+                    value={vehicleType}
+                    onInput={(e) => setVehicleType(e.detail.value)}
+                    placeholder="请输入车型"
                   />
                 </View>
               </View>
-            </View>
 
-            {/* 入口信息 */}
-            <View>
-              <Text className="text-sm text-muted-foreground mb-2 block">入口信息</Text>
-              <View className="bg-input rounded-lg px-3 py-2">
-                <Input
-                  className="w-full text-foreground"
-                  value={entryInfo}
-                  onInput={(e) => setEntryInfo(e.detail.value)}
-                  placeholder="请输入入口信息"
-                />
-              </View>
-            </View>
-
-            {/* 登记时间 */}
-            <View>
-              <Text className="text-sm text-muted-foreground mb-2 block">登记时间</Text>
-              <View className="bg-input rounded-lg px-3 py-2">
-                <Input
-                  className="w-full text-foreground"
-                  value={entryTime}
-                  onInput={(e) => setEntryTime(e.detail.value)}
-                  placeholder="如：2025-12-06 13:25:05"
-                />
-              </View>
-            </View>
-
-            {/* 金额 */}
-            <View>
-              <Text className="text-sm text-muted-foreground mb-2 block">金额（元）</Text>
-              <View className="bg-input rounded-lg px-3 py-2">
-                <Input
-                  className="w-full text-foreground"
-                  type="digit"
-                  value={amount}
-                  onInput={(e) => setAmount(e.detail.value)}
-                  placeholder="请输入金额"
-                />
-              </View>
-            </View>
-
-            {/* 收费员和监控员（并排） */}
-            <View className="flex gap-3">
-              {/* 收费员 */}
-              <View className="flex-1 relative">
-                <Text className="text-sm text-muted-foreground mb-2 block">收费员</Text>
-                <View className="relative">
-                  <View
-                    className={`bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer border ${showCollectorOptions ? 'border-primary' : 'border-transparent'} transition-all duration-200`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowCollectorOptions(!showCollectorOptions)
-                      setShowMonitorOptions(false)
-                    }}>
+              {/* 轴数和吨位 */}
+              <View className="flex gap-3">
+                <View className="flex-1">
+                  <Text className="text-sm text-muted-foreground mb-2 block">轴数</Text>
+                  <View className="bg-input rounded-lg px-3 py-2">
                     <Input
-                      className="w-full text-foreground text-sm focus:outline-none"
-                      value={collectorSearch}
-                      onInput={(e) => {
-                        setCollectorSearch(e.detail.value)
-                        setShowCollectorOptions(true)
-                      }}
-                      placeholder="请输入或选择收费员"
+                      className="w-full text-foreground"
+                      value={axleCount}
+                      onInput={(e) => setAxleCount(e.detail.value)}
+                      placeholder="如：2轴"
+                    />
+                  </View>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm text-muted-foreground mb-2 block">吨位</Text>
+                  <View className="bg-input rounded-lg px-3 py-2">
+                    <Input
+                      className="w-full text-foreground"
+                      value={tonnage}
+                      onInput={(e) => setTonnage(e.detail.value)}
+                      placeholder="如：1.26吨"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* 入口信息 */}
+              <View>
+                <Text className="text-sm text-muted-foreground mb-2 block">入口信息</Text>
+                <View className="bg-input rounded-lg px-3 py-2">
+                  <Input
+                    className="w-full text-foreground"
+                    value={entryInfo}
+                    onInput={(e) => setEntryInfo(e.detail.value)}
+                    placeholder="请输入入口信息"
+                  />
+                </View>
+              </View>
+
+              {/* 登记时间 */}
+              <View>
+                <Text className="text-sm text-muted-foreground mb-2 block">登记时间</Text>
+                <View className="bg-input rounded-lg px-3 py-2">
+                  <Input
+                    className="w-full text-foreground"
+                    value={entryTime}
+                    onInput={(e) => setEntryTime(e.detail.value)}
+                    placeholder="如：2025-12-06 13:25:05"
+                  />
+                </View>
+              </View>
+
+              {/* 金额 */}
+              <View>
+                <Text className="text-sm text-muted-foreground mb-2 block">金额（元）</Text>
+                <View className="bg-input rounded-lg px-3 py-2">
+                  <Input
+                    className="w-full text-foreground"
+                    type="digit"
+                    value={amount}
+                    onInput={(e) => setAmount(e.detail.value)}
+                    placeholder="请输入金额"
+                  />
+                </View>
+              </View>
+
+              {/* 收费员和监控员（并排） */}
+              <View className="flex gap-3">
+                {/* 收费员 */}
+                <View className="flex-1 relative">
+                  <Text className="text-sm text-muted-foreground mb-2 block">收费员</Text>
+                  <View className="relative">
+                    <View
+                      className={`bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer border ${showCollectorOptions ? 'border-primary' : 'border-transparent'} transition-all duration-200`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        setShowCollectorOptions(true)
+                        setShowCollectorOptions(!showCollectorOptions)
                         setShowMonitorOptions(false)
-                      }}
-                    />
-                    <View
-                      className={`i-mdi-chevron-down text-lg text-muted-foreground transition-transform duration-200 ${showCollectorOptions ? 'rotate-180' : ''}`}
-                    />
-                  </View>
-                  {/* 下拉选项 */}
-                  {showCollectorOptions && (
-                    <View
-                      ref={collectorOptionsRef}
-                      className="absolute bottom-full left-0 right-0 bg-white rounded-lg shadow-xl mb-1 max-h-48 overflow-y-auto z-50 border border-gray-200 transition-all duration-200"
-                      onClick={(e) => e.stopPropagation()}>
-                      {filteredCollectors.length > 0 ? (
-                        filteredCollectors.map((collector, _index) => {
-                          const isSelected = collectorSearch === `${collector.code} ${collector.name}`
-                          return (
-                            <View
-                              key={collector.id}
-                              className={`px-4 py-3 cursor-pointer text-sm transition-all duration-150 ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-gray-50'}`}
-                              onClick={() => handleCollectorSelect(collector)}>
-                              <Text className={isSelected ? 'text-primary font-medium' : 'text-gray-800'}>
-                                {collector.code} {collector.name}
-                              </Text>
-                            </View>
-                          )
-                        })
-                      ) : (
-                        <View className="px-4 py-4 text-center text-sm text-gray-500">
-                          <Text>未找到匹配的收费员</Text>
-                        </View>
-                      )}
+                      }}>
+                      <Input
+                        className="w-full text-foreground text-sm focus:outline-none"
+                        value={collectorSearch}
+                        onInput={(e) => {
+                          setCollectorSearch(e.detail.value)
+                          setShowCollectorOptions(true)
+                        }}
+                        placeholder="请输入或选择收费员"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowCollectorOptions(true)
+                          setShowMonitorOptions(false)
+                        }}
+                      />
+                      <View
+                        className={`i-mdi-chevron-down text-lg text-muted-foreground transition-transform duration-200 ${showCollectorOptions ? 'rotate-180' : ''}`}
+                      />
                     </View>
-                  )}
+                    {/* 下拉选项 */}
+                    {showCollectorOptions && (
+                      <View
+                        ref={collectorOptionsRef}
+                        className="absolute bottom-full left-0 right-0 bg-white rounded-lg shadow-xl mb-1 max-h-48 overflow-y-auto z-50 border border-gray-200 transition-all duration-200"
+                        onClick={(e) => e.stopPropagation()}>
+                        {filteredCollectors.length > 0 ? (
+                          filteredCollectors.map((collector, _index) => {
+                            const isSelected = collectorSearch === `${collector.code} ${collector.name}`
+                            return (
+                              <View
+                                key={collector.id}
+                                className={`px-4 py-3 cursor-pointer text-sm transition-all duration-150 ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-gray-50'}`}
+                                onClick={() => handleCollectorSelect(collector)}>
+                                <Text className={isSelected ? 'text-primary font-medium' : 'text-gray-800'}>
+                                  {collector.code} {collector.name}
+                                </Text>
+                              </View>
+                            )
+                          })
+                        ) : (
+                          <View className="px-4 py-4 text-center text-sm text-gray-500">
+                            <Text>未找到匹配的收费员</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
 
-              {/* 监控员 */}
-              <View className="flex-1 relative">
-                <Text className="text-sm text-muted-foreground mb-2 block">监控员</Text>
-                <View className="relative">
-                  <View
-                    className={`bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer border ${showMonitorOptions ? 'border-primary' : 'border-transparent'} transition-all duration-200`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowMonitorOptions(!showMonitorOptions)
-                      setShowCollectorOptions(false)
-                    }}>
-                    <Input
-                      className="w-full text-foreground text-sm focus:outline-none"
-                      value={monitorSearch}
-                      onInput={(e) => {
-                        setMonitorSearch(e.detail.value)
-                        setShowMonitorOptions(true)
-                      }}
-                      placeholder="请输入或选择监控员"
+                {/* 监控员 */}
+                <View className="flex-1 relative">
+                  <Text className="text-sm text-muted-foreground mb-2 block">监控员</Text>
+                  <View className="relative">
+                    <View
+                      className={`bg-input rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer border ${showMonitorOptions ? 'border-primary' : 'border-transparent'} transition-all duration-200`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        setShowMonitorOptions(true)
+                        setShowMonitorOptions(!showMonitorOptions)
                         setShowCollectorOptions(false)
-                      }}
-                    />
-                    <View
-                      className={`i-mdi-chevron-down text-lg text-muted-foreground transition-transform duration-200 ${showMonitorOptions ? 'rotate-180' : ''}`}
-                    />
-                  </View>
-                  {/* 下拉选项 */}
-                  {showMonitorOptions && (
-                    <View
-                      ref={monitorOptionsRef}
-                      className="absolute bottom-full left-0 right-0 bg-white rounded-lg shadow-xl mb-1 max-h-48 overflow-y-auto z-50 border border-gray-200 transition-all duration-200"
-                      onClick={(e) => e.stopPropagation()}>
-                      {filteredMonitors.length > 0 ? (
-                        filteredMonitors.map((monitor, _index) => {
-                          const isSelected = monitorSearch === `${monitor.code} ${monitor.name}`
-                          return (
-                            <View
-                              key={monitor.id}
-                              className={`px-4 py-3 cursor-pointer text-sm transition-all duration-150 ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-gray-50'}`}
-                              onClick={() => handleMonitorSelect(monitor)}>
-                              <Text className={isSelected ? 'text-primary font-medium' : 'text-gray-800'}>
-                                {monitor.code} {monitor.name}
-                              </Text>
-                            </View>
-                          )
-                        })
-                      ) : (
-                        <View className="px-4 py-4 text-center text-sm text-gray-500">
-                          <Text>未找到匹配的监控员</Text>
-                        </View>
-                      )}
+                      }}>
+                      <Input
+                        className="w-full text-foreground text-sm focus:outline-none"
+                        value={monitorSearch}
+                        onInput={(e) => {
+                          setMonitorSearch(e.detail.value)
+                          setShowMonitorOptions(true)
+                        }}
+                        placeholder="请输入或选择监控员"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowMonitorOptions(true)
+                          setShowCollectorOptions(false)
+                        }}
+                      />
+                      <View
+                        className={`i-mdi-chevron-down text-lg text-muted-foreground transition-transform duration-200 ${showMonitorOptions ? 'rotate-180' : ''}`}
+                      />
                     </View>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* 当前班次和免费原因（并排） */}
-            <View className="flex gap-3">
-              <View className="flex-1">
-                <Text className="text-sm text-muted-foreground mb-2 block">当前班次</Text>
-                <View className="bg-input rounded-lg px-3 py-2">
-                  <Text className="text-foreground text-sm">{currentShift || '未设置'}</Text>
-                </View>
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm text-muted-foreground mb-2 block">免费原因</Text>
-                <Picker mode="selector" range={FREE_REASONS} value={freeReasonIndex} onChange={handleFreeReasonChange}>
-                  <View className="bg-input rounded-lg px-3 py-2 flex items-center justify-between">
-                    <Text className={freeReason ? 'text-foreground text-sm' : 'text-muted-foreground text-sm'}>
-                      {freeReason || '请选择'}
-                    </Text>
-                    <View className="i-mdi-chevron-down text-lg text-muted-foreground" />
+                    {/* 下拉选项 */}
+                    {showMonitorOptions && (
+                      <View
+                        ref={monitorOptionsRef}
+                        className="absolute bottom-full left-0 right-0 bg-white rounded-lg shadow-xl mb-1 max-h-48 overflow-y-auto z-50 border border-gray-200 transition-all duration-200"
+                        onClick={(e) => e.stopPropagation()}>
+                        {filteredMonitors.length > 0 ? (
+                          filteredMonitors.map((monitor, _index) => {
+                            const isSelected = monitorSearch === `${monitor.code} ${monitor.name}`
+                            return (
+                              <View
+                                key={monitor.id}
+                                className={`px-4 py-3 cursor-pointer text-sm transition-all duration-150 ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-gray-50'}`}
+                                onClick={() => handleMonitorSelect(monitor)}>
+                                <Text className={isSelected ? 'text-primary font-medium' : 'text-gray-800'}>
+                                  {monitor.code} {monitor.name}
+                                </Text>
+                              </View>
+                            )
+                          })
+                        ) : (
+                          <View className="px-4 py-4 text-center text-sm text-gray-500">
+                            <Text>未找到匹配的监控员</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
-                </Picker>
+                </View>
+              </View>
+
+              {/* 当前班次和免费原因（并排） */}
+              <View className="flex gap-3">
+                <View className="flex-1">
+                  <Text className="text-sm text-muted-foreground mb-2 block">当前班次</Text>
+                  <View className="bg-input rounded-lg px-3 py-2">
+                    <Text className="text-foreground text-sm">{currentShift || '未设置'}</Text>
+                  </View>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm text-muted-foreground mb-2 block">免费原因</Text>
+                  <Picker
+                    mode="selector"
+                    range={FREE_REASONS}
+                    value={freeReasonIndex}
+                    onChange={handleFreeReasonChange}>
+                    <View className="bg-input rounded-lg px-3 py-2 flex items-center justify-between">
+                      <Text className={freeReason ? 'text-foreground text-sm' : 'text-muted-foreground text-sm'}>
+                        {freeReason || '请选择'}
+                      </Text>
+                      <View className="i-mdi-chevron-down text-lg text-muted-foreground" />
+                    </View>
+                  </Picker>
+                </View>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* 操作按钮 */}
-        <View className="flex gap-3">
-          <Button
-            className="flex-1 bg-[#1492ff] text-white py-4 rounded-xl break-keep text-base font-medium"
-            size="default"
-            onClick={handleReRecognize}
-            disabled={isSaving || isRecognizing}>
-            <View className="flex items-center justify-center">
-              <View className="i-mdi-refresh text-xl mr-2" />
-              <Text>{isRecognizing ? '识别中...' : '重新识别'}</Text>
-            </View>
-          </Button>
-          <Button
-            className="flex-1 bg-gradient-primary text-primary-foreground py-4 rounded-xl break-keep text-base font-medium"
-            size="default"
-            onClick={handleSave}
-            disabled={isSaving || isRecognizing}>
-            <View className="flex items-center justify-center">
-              <View className="i-mdi-content-save text-xl mr-2" />
-              <Text>{isSaving ? '保存中...' : '保存记录'}</Text>
-            </View>
-          </Button>
+          {/* 操作按钮 */}
+          <View className="flex gap-3">
+            <Button
+              className="flex-1 bg-[#1492ff] text-white py-4 rounded-xl break-keep text-base font-medium"
+              size="default"
+              onClick={handleReRecognize}
+              disabled={isSaving || isRecognizing}>
+              <View className="flex items-center justify-center">
+                <View className="i-mdi-refresh text-xl mr-2" />
+                <Text>{isRecognizing ? '识别中...' : '重新识别'}</Text>
+              </View>
+            </Button>
+            <Button
+              className="flex-1 bg-gradient-primary text-primary-foreground py-4 rounded-xl break-keep text-base font-medium"
+              size="default"
+              onClick={handleSave}
+              disabled={isSaving || isRecognizing}>
+              <View className="flex items-center justify-center">
+                <View className="i-mdi-content-save text-xl mr-2" />
+                <Text>{isSaving ? '保存中...' : '保存记录'}</Text>
+              </View>
+            </Button>
+          </View>
         </View>
       </View>
-    </View>
+    </AuthGuard>
   )
 }
 

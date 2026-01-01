@@ -1,0 +1,292 @@
+import bcrypt from 'bcryptjs'
+import {supabase} from '@/client/supabase'
+import type {AdminUser, LoginResponse} from '@/db/types'
+import {taroStorage} from './storage'
+
+// 会话超时时间：8小时
+const SESSION_TIMEOUT = 8 * 60 * 60 * 1000
+
+// 存储键名
+const STORAGE_KEYS = {
+  USER: 'admin_user',
+  LOGIN_TIME: 'login_time',
+  SESSION_TOKEN: 'session_token'
+}
+
+// 验证密码
+export async function verifyPassword(
+  plainPassword: string,
+  hashedPassword: string,
+  createdAt?: string // 保留参数以保持兼容性，但不再使用
+): Promise<boolean> {
+  try {
+    console.log('verifyPassword函数调用')
+    console.log('明文密码:', plainPassword)
+    console.log('存储的哈希密码:', hashedPassword)
+    console.log('是否有createdAt:', !!createdAt)
+    
+    // 检查是否是自定义哈希格式：hashed_密码_时间戳
+    if (hashedPassword.startsWith('hashed_')) {
+      console.log('检测到自定义哈希格式')
+      
+      // 解析自定义哈希：hashed_pingzan1234_1767247482480
+      const parts = hashedPassword.split('_')
+      if (parts.length === 3) {
+        const extractedPassword = parts[1]
+        const timestamp = parts[2]
+        
+        console.log('提取出的密码:', extractedPassword)
+        console.log('提取出的时间戳:', timestamp)
+        
+        // 验证逻辑：检查输入密码是否与提取的密码匹配
+        const result = plainPassword === extractedPassword
+        console.log('自定义哈希验证结果:', result)
+        
+        return result
+      }
+      console.log('自定义哈希格式不正确，parts长度:', parts.length)
+    }
+    
+    // 否则尝试使用bcrypt验证（后备方案）
+    console.log('尝试使用bcrypt验证')
+    const result = await bcrypt.compare(plainPassword, hashedPassword)
+    console.log('bcrypt.compare结果:', result)
+    
+    return result
+  } catch (error) {
+    console.error('密码验证失败:', error)
+    return false
+  }
+}
+
+// 根据用户名查询用户
+export async function getUserByUsername(username: string): Promise<AdminUser | null> {
+  try {
+    const {data, error} = await supabase.from('admin_users').select('*').eq('username', username).single()
+
+    if (error) {
+      console.error('查询用户失败:', error)
+      return null
+    }
+
+    return data as AdminUser
+  } catch (error) {
+    console.error('查询用户异常:', error)
+    return null
+  }
+}
+
+// 登录功能
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  try {
+    // 1. 验证输入
+    if (!username.trim() || !password.trim()) {
+      return {
+        success: false,
+        message: '用户名和密码不能为空'
+      }
+    }
+
+    // 2. 查询用户
+    const user = await getUserByUsername(username.trim())
+    if (!user) {
+      return {
+        success: false,
+        message: '用户名或密码错误'
+      }
+    }
+
+    // 3. 验证密码 - 使用标准bcrypt验证，与admin面板保持一致
+    const isPasswordValid = await verifyPassword(password.trim(), user.password, user.created_at)
+    if (!isPasswordValid) {
+      return {
+        success: false,
+        message: '用户名或密码错误'
+      }
+    }
+
+    // 4. 保存登录状态
+    const loginTime = Date.now()
+    await saveLoginState(user, loginTime)
+
+    return {
+      success: true,
+      user
+    }
+  } catch (error) {
+    console.error('登录失败:', error)
+    return {
+      success: false,
+      message: '登录失败，请稍后重试'
+    }
+  }
+}
+
+// 保存登录状态
+export async function saveLoginState(user: AdminUser, loginTime: number): Promise<void> {
+  try {
+    // 移除密码等敏感信息
+    const {password, ...userWithoutPassword} = user
+
+    await Promise.all([
+      taroStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userWithoutPassword)),
+      taroStorage.setItem(STORAGE_KEYS.LOGIN_TIME, loginTime.toString()),
+      taroStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, generateSessionToken(user.id))
+    ])
+  } catch (error) {
+    console.error('保存登录状态失败:', error)
+  }
+}
+
+// 生成会话令牌
+export function generateSessionToken(userId: string): string {
+  const timestamp = Date.now()
+  const data = `${userId}-${timestamp}`
+  return bcrypt.hashSync(data, 10)
+}
+
+// 获取当前登录用户
+export async function getCurrentUser(): Promise<AdminUser | null> {
+  try {
+    const userStr = await taroStorage.getItem(STORAGE_KEYS.USER)
+    if (!userStr) {
+      return null
+    }
+    return JSON.parse(userStr) as AdminUser
+  } catch (error) {
+    console.error('获取当前用户失败:', error)
+    return null
+  }
+}
+
+// 检查登录状态
+export async function checkLoginStatus(): Promise<boolean> {
+  try {
+    const user = await getCurrentUser()
+    const loginTimeStr = await taroStorage.getItem(STORAGE_KEYS.LOGIN_TIME)
+
+    if (!user || !loginTimeStr) {
+      return false
+    }
+
+    const loginTime = parseInt(loginTimeStr, 10)
+    const now = Date.now()
+
+    // 检查会话是否超时
+    if (now - loginTime > SESSION_TIMEOUT) {
+      await logout()
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('检查登录状态失败:', error)
+    return false
+  }
+}
+
+// 登出
+export async function logout(): Promise<void> {
+  try {
+    await Promise.all([
+      taroStorage.removeItem(STORAGE_KEYS.USER),
+      taroStorage.removeItem(STORAGE_KEYS.LOGIN_TIME),
+      taroStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN)
+    ])
+  } catch (error) {
+    console.error('登出失败:', error)
+  }
+}
+
+// 获取用户所属收费站
+export async function getUserStation(userId: string): Promise<string | null> {
+  try {
+    const {data, error} = await supabase.from('admin_users').select('station_id').eq('id', userId).single()
+
+    if (error) {
+      console.error('获取用户所属收费站失败:', error)
+      return null
+    }
+
+    return data.station_id
+  } catch (error) {
+    console.error('获取用户所属收费站异常:', error)
+    return null
+  }
+}
+
+// 根据收费站ID获取收费员
+export async function getCollectorsByStationId(stationId: string): Promise<any[]> {
+  try {
+    const {data, error} = await supabase
+      .from('toll_collectors_info')
+      .select('*')
+      .eq('station_id', stationId)
+      .order('name')
+
+    if (error) {
+      console.error('获取收费员失败:', error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('获取收费员异常:', error)
+    return []
+  }
+}
+
+// 根据收费站ID获取监控员
+export async function getMonitorsByStationId(stationId: string): Promise<any[]> {
+  try {
+    const {data, error} = await supabase.from('monitors_info').select('*').eq('station_id', stationId).order('name')
+
+    if (error) {
+      console.error('获取监控员失败:', error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('获取监控员异常:', error)
+    return []
+  }
+}
+
+// 检查用户权限
+export function checkPermission(user: AdminUser, permission: string): boolean {
+  // 超级管理员拥有所有权限
+  if (user.role === 'super_admin') {
+    return true
+  }
+
+  // 分公司管理员权限
+  if (user.role === 'company_admin') {
+    const companyAdminPermissions = [
+      'view_records',
+      'create_records',
+      'edit_records',
+      'delete_records',
+      'view_collectors',
+      'view_monitors',
+      'view_shifts',
+      'view_stations'
+    ]
+    return companyAdminPermissions.includes(permission)
+  }
+
+  // 收费站管理员权限
+  if (user.role === 'station_admin') {
+    const stationAdminPermissions = [
+      'view_records',
+      'create_records',
+      'edit_records',
+      'view_collectors',
+      'view_monitors',
+      'view_shifts'
+    ]
+    return stationAdminPermissions.includes(permission)
+  }
+
+  return false
+}

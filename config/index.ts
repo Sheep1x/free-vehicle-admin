@@ -38,7 +38,12 @@ export default defineConfig<'vite'>(async (merge) => {
       )
     },
     copy: {
-      patterns: [],
+      patterns: [
+        {
+          from: 'src/assets/images/app-icon-rounded.png',
+          to: 'dist/assets/images/app-icon-rounded.png'
+        }
+      ],
       options: {}
     },
     framework: 'react',

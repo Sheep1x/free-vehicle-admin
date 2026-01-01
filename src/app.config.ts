@@ -1,4 +1,10 @@
-const pages = ['pages/home/index', 'pages/history/index', 'pages/profile/index', 'pages/result/index']
+const pages = [
+  'pages/login/index',
+  'pages/home/index',
+  'pages/history/index',
+  'pages/profile/index',
+  'pages/result/index'
+]
 
 //  To fully leverage TypeScript's type safety and ensure its correctness, always enclose the configuration object within the global defineAppConfig helper function.
 export default defineAppConfig({

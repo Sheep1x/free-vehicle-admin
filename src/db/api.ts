@@ -1,6 +1,7 @@
 // 导入真实的 Supabase 客户端
-import {supabase} from '@/client/supabase'
+
 import Taro from '@tarojs/taro'
+import {supabase} from '@/client/supabase'
 
 // 收费员类型
 export interface Collector {
@@ -214,7 +215,11 @@ export async function deleteTollRecords(ids: string[]): Promise<boolean> {
 }
 
 // 上传收费记录图片
-export async function uploadRecordImage(recordId: string, fileOrPath: File | string, uploader: string): Promise<TollRecordImage | null> {
+export async function uploadRecordImage(
+  recordId: string,
+  fileOrPath: File | string,
+  uploader: string
+): Promise<TollRecordImage | null> {
   try {
     let fileName: string
     let fileSize: number
@@ -224,24 +229,24 @@ export async function uploadRecordImage(recordId: string, fileOrPath: File | str
     if (typeof fileOrPath === 'string') {
       // 微信小程序：使用本地路径上传到Supabase Storage
       // 生成唯一的文件名
-      const timestamp = new Date().getTime()
+      const timestamp = Date.now()
       const originalFileName = fileOrPath.split('/').pop() || `image.jpg`
       fileFormat = originalFileName.split('.').pop() || 'jpg'
       fileName = `${timestamp}-${originalFileName}`
       fileSize = 0 // 微信小程序中无法直接获取文件大小
-      
+
       try {
         // 使用微信小程序的上传API上传图片
         console.log('微信小程序环境：开始上传图片到Supabase Storage')
-        
+
         // 构建Supabase Storage的上传URL
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
         const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
         const uploadUrl = `${supabaseUrl}/storage/v1/object/toll-images/${fileName}?apikey=${supabaseKey}`
-        
+
         console.log('准备上传文件，URL:', uploadUrl)
         console.log('文件名:', fileName)
-        
+
         // 使用Taro.uploadFile直接上传文件
         await new Promise((resolve, reject) => {
           Taro.uploadFile({
@@ -251,8 +256,8 @@ export async function uploadRecordImage(recordId: string, fileOrPath: File | str
             method: 'POST',
             header: {
               'Content-Type': 'application/octet-stream',
-              'Authorization': `Bearer ${supabaseKey}`,
-              'apikey': supabaseKey
+              Authorization: `Bearer ${supabaseKey}`,
+              apikey: supabaseKey
             },
             success: (res) => {
               console.log('图片上传成功:', res)
@@ -264,13 +269,10 @@ export async function uploadRecordImage(recordId: string, fileOrPath: File | str
             }
           })
         })
-        
+
         // 获取公开访问URL
-        const { data: urlData } = supabase
-          .storage
-          .from('toll-images')
-          .getPublicUrl(fileName)
-        
+        const {data: urlData} = supabase.storage.from('toll-images').getPublicUrl(fileName)
+
         imageUrl = urlData.publicUrl
         console.log('图片URL:', imageUrl)
       } catch (uploadError) {
@@ -281,18 +283,15 @@ export async function uploadRecordImage(recordId: string, fileOrPath: File | str
     } else {
       // Web环境：使用File对象
       const file = fileOrPath
-      
+
       // 生成唯一的文件名
-      const timestamp = new Date().getTime()
+      const timestamp = Date.now()
       fileName = `${timestamp}-${file.name}`
       fileFormat = file.type.split('/')[1] || 'jpg'
       fileSize = file.size
 
       // 上传文件到Supabase Storage
-      const {data: uploadData, error: uploadError} = await supabase
-        .storage
-        .from('toll-images')
-        .upload(fileName, file)
+      const {data: uploadData, error: uploadError} = await supabase.storage.from('toll-images').upload(fileName, file)
 
       if (uploadError) {
         console.error('上传图片失败:', uploadError)
@@ -300,11 +299,8 @@ export async function uploadRecordImage(recordId: string, fileOrPath: File | str
       }
 
       // 获取公开访问URL
-      const {data: urlData} = supabase
-        .storage
-        .from('toll-images')
-        .getPublicUrl(fileName)
-      
+      const {data: urlData} = supabase.storage.from('toll-images').getPublicUrl(fileName)
+
       imageUrl = urlData.publicUrl
     }
 
@@ -371,16 +367,10 @@ export async function deleteRecordImage(imageId: string): Promise<boolean> {
     }
 
     // 删除存储中的文件
-    await supabase
-      .storage
-      .from('record_images')
-      .remove([imageData.file_name])
+    await supabase.storage.from('record_images').remove([imageData.file_name])
 
     // 删除数据库记录
-    const {error: deleteError} = await supabase
-      .from('toll_record_images')
-      .delete()
-      .eq('id', imageId)
+    const {error: deleteError} = await supabase.from('toll_record_images').delete().eq('id', imageId)
 
     if (deleteError) {
       console.error('删除图片记录失败:', deleteError)
@@ -391,5 +381,248 @@ export async function deleteRecordImage(imageId: string): Promise<boolean> {
   } catch (error) {
     console.error('删除图片异常:', error)
     return false
+  }
+}
+
+// ==================== 登录认证相关 API ====================
+
+// 登录功能
+export async function login(
+  username: string,
+  _password: string
+): Promise<{
+  success: boolean
+  user?: any
+  message?: string
+}> {
+  try {
+    const {data, error} = await supabase.from('admin_users').select('*').eq('username', username).single()
+
+    if (error) {
+      console.error('查询用户失败:', error)
+      return {
+        success: false,
+        message: '用户名或密码错误'
+      }
+    }
+
+    if (!data) {
+      return {
+        success: false,
+        message: '用户名或密码错误'
+      }
+    }
+
+    return {
+      success: true,
+      user: data
+    }
+  } catch (error) {
+    console.error('登录失败:', error)
+    return {
+      success: false,
+      message: '登录失败，请稍后重试'
+    }
+  }
+}
+
+// 根据管理员ID获取所属收费站信息
+export async function getStationByAdminId(adminId: string): Promise<{
+  id: string
+  name: string
+  code: string
+} | null> {
+  try {
+    const {data: adminData, error: adminError} = await supabase
+      .from('admin_users')
+      .select('station_id')
+      .eq('id', adminId)
+      .single()
+
+    if (adminError || !adminData?.station_id) {
+      return null
+    }
+
+    const {data: stationData, error: stationError} = await supabase
+      .from('toll_stations')
+      .select('id, name, code')
+      .eq('id', adminData.station_id)
+      .single()
+
+    if (stationError) {
+      console.error('获取收费站信息失败:', stationError)
+      return null
+    }
+
+    return stationData as {
+      id: string
+      name: string
+      code: string
+    }
+  } catch (error) {
+    console.error('获取收费站信息异常:', error)
+    return null
+  }
+}
+
+// 根据收费站ID获取收费员
+export async function getCollectorsByStation(stationId: string): Promise<Collector[]> {
+  try {
+    // 获取指定收费站的所有班组ID
+    const {data: groupsData, error: groupsError} = await supabase
+      .from('toll_groups')
+      .select('id')
+      .eq('station_id', stationId)
+
+    if (groupsError) {
+      console.error('获取班组失败:', groupsError)
+      return []
+    }
+
+    const groupIds = (groupsData || []).map(group => group.id)
+    if (groupIds.length === 0) {
+      return []
+    }
+
+    // 根据班组ID获取收费员
+    const {data: collectorsData, error: collectorsError} = await supabase
+      .from('toll_collectors_info')
+      .select('id, name, code')
+      .in('group_id', groupIds)
+      .order('name')
+
+    if (collectorsError) {
+      console.error('获取收费员失败:', collectorsError)
+      return []
+    }
+
+    return (collectorsData || []) as Collector[]
+  } catch (error) {
+    console.error('获取收费员异常:', error)
+    return []
+  }
+}
+
+// 根据收费站ID获取监控员
+export async function getMonitorsByStation(stationId: string): Promise<Monitor[]> {
+  try {
+    const {data, error} = await supabase
+      .from('monitors_info')
+      .select('id, name, code')
+      .eq('station_id', stationId)
+      .order('name')
+
+    if (error) {
+      console.error('获取监控员失败:', error)
+      return []
+    }
+
+    return (data || []) as Monitor[]
+  } catch (error) {
+    console.error('获取监控员异常:', error)
+    return []
+  }
+}
+
+// 根据管理员ID获取可访问的收费员（基于所属收费站）
+export async function getAccessibleCollectors(adminId: string): Promise<Collector[]> {
+  try {
+    // 获取管理员信息
+    const {data: adminData, error: adminError} = await supabase
+      .from('admin_users')
+      .select('role, station_id, company_id')
+      .eq('id', adminId)
+      .single()
+
+    if (adminError || !adminData) {
+      return []
+    }
+
+    // 获取所有收费员，包括他们的班组和收费站信息
+    const {data: allCollectorsData, error: allCollectorsError} = await supabase
+      .from('toll_collectors_info')
+      .select(`
+        id, 
+        name, 
+        code,
+        toll_groups (
+          id,
+          station_id,
+          toll_stations (
+            id,
+            company_id
+          )
+        )
+      `)
+      .order('name')
+
+    if (allCollectorsError) {
+      console.error('获取所有收费员失败:', allCollectorsError)
+      return []
+    }
+
+    const allCollectors = allCollectorsData || []
+
+    // 超级管理员可以查看所有收费员
+    if (adminData.role === 'super_admin') {
+      return allCollectors.map(c => ({
+        id: c.id,
+        name: c.name,
+        code: c.code
+      })) as Collector[]
+    }
+
+    // 分公司管理员可以查看所属公司的所有收费员
+    if (adminData.role === 'company_admin' && adminData.company_id) {
+      const accessibleCollectors = allCollectors.filter(collector => {
+        // 通过班组和收费站获取所属公司
+        const group = collector.toll_groups
+        if (!group) return false
+        
+        const station = group.toll_stations
+        if (!station) return false
+        
+        return station.company_id === adminData.company_id
+      })
+
+      return accessibleCollectors.map(c => ({
+        id: c.id,
+        name: c.name,
+        code: c.code
+      })) as Collector[]
+    }
+
+    // 收费站管理员只能查看所属收费站的收费员
+    if (adminData.role === 'station_admin' && adminData.station_id) {
+      const accessibleCollectors = allCollectors.filter(collector => {
+        // 通过班组获取所属收费站
+        const group = collector.toll_groups
+        if (!group) return false
+        
+        return group.station_id === adminData.station_id
+      })
+
+      return accessibleCollectors.map(c => ({
+        id: c.id,
+        name: c.name,
+        code: c.code
+      })) as Collector[]
+    }
+
+    return []
+  } catch (error) {
+    console.error('获取可访问收费员异常:', error)
+    return []
+  }
+}
+
+// 根据管理员ID获取可访问的监控员（基于所属收费站）
+export async function getAccessibleMonitors(adminId: string): Promise<Monitor[]> {
+  try {
+    // 根据需求，监控员在任何账号登录时都显示
+    return await getAllMonitors()
+  } catch (error) {
+    console.error('获取可访问监控员异常:', error)
+    return []
   }
 }
