@@ -21,17 +21,21 @@
             <div class="shape"></div>
         </div>
         <form class="login-form" onsubmit="return false;">
-            <h3>后台管理系统登录</h3>
-            <div id="login-error" class="login-error" style="display: none;"></div>
-            <div class="form-group">
-                <label for="login-username" class="visually-hidden">用户名</label>
-                <input type="text" id="login-username" name="username" placeholder="用户名" required>
+            <div class="login-card">
+                <div class="login-title">
+                    <span class="login-text">登  录</span>
+                </div>
+                <div class="login-form-inner">
+                    <div id="login-error" class="login-error" style="display: none;"></div>
+                    <div class="input-group">
+                        <input type="text" id="login-username" name="username" placeholder="用户名" class="login-input" required />
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="login-password" name="password" placeholder="密码" class="login-input" required />
+                    </div>
+                    <button type="button" class="login-btn" onclick="handleLogin()">登  录</button>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="login-password" class="visually-hidden">密码</label>
-                <input type="password" id="login-password" name="password" placeholder="密码" required>
-            </div>
-            <button type="button" class="btn btn-primary" onclick="handleLogin()">登录</button>
         </form>
     </div>
 
@@ -424,7 +428,7 @@
         }
         
         // 绑定登录按钮点击事件
-        const loginBtn = document.querySelector('.btn-primary[type="button"]');
+        const loginBtn = document.querySelector('.login-btn');
         if (loginBtn) {
           console.log('✅ 登录按钮已找到');
           loginBtn.onclick = function() {

@@ -38,7 +38,17 @@ body {
     background-color: var(--bg-color);
     color: var(--text-primary);
     min-height: 100vh;
+    height: 100vh;
     line-height: 1.6;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
 
 /* 登录页面样式 */
@@ -62,6 +72,8 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    margin: 0;
+    padding: 0;
 }
 
 .background {
@@ -112,100 +124,182 @@ body {
 }
 
 .login-form {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-    padding: 40px;
+    position: relative;
     width: 100%;
-    max-width: 400px;
+    max-width: 300px;
     z-index: 2;
-    transition: all 0.3s ease;
 }
 
-.login-form:hover {
-    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
-    transform: translateY(-5px);
-}
-
-.login-form h3 {
-    text-align: center;
-    margin-bottom: 30px;
-    color: white;
-    font-size: 28px;
-    font-weight: 600;
-    letter-spacing: 1px;
-}
-
-.login-form .form-group {
-    margin-bottom: 25px;
-}
-
-.login-form .form-group input {
+.login-card {
+    position: relative;
     width: 100%;
-    padding: 14px 18px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 12px;
-    font-size: 16px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-}
-
-.login-form .form-group input::placeholder {
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.login-form .form-group input:focus {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.8);
-    background: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
-}
-
-.login-form .btn {
-    width: 80%;
-    padding: 14px;
-    font-size: 16px;
-    font-weight: 600;
-    margin: 15px auto 0;
-    background: rgba(255, 255, 255, 0.25);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 12px;
+    height: 80px;
+    background: linear-gradient(135deg, #ff3366, #ff6b35);
+    border: 4px solid #000;
+    box-shadow: 
+        8px 8px 0 #000, 
+        16px 16px 0 rgba(255, 51, 102, 0.3);
     cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    letter-spacing: 0.5px;
-    display: block;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    transform-style: preserve-3d;
 }
 
-.login-form .btn:hover {
-    background: rgba(255, 255, 255, 0.35);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    transform: translateY(-2px);
+.login-card:hover {
+    height: 320px;
+    transform: translateZ(20px) rotateX(5deg) rotateY(-5deg);
+    box-shadow: 
+        12px 12px 0 #000, 
+        24px 24px 0 rgba(255, 51, 102, 0.4), 
+        0 0 50px rgba(255, 51, 102, 0.6);
 }
 
-.login-form .btn:active {
-    transform: translateY(0);
+.login-title {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: inherit;
+    transition: all 0.4s ease;
+}
+
+.login-text {
+    color: #000;
+    font-weight: 800;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.3);
+    transition: all 0.4s ease;
+}
+
+.login-card:hover .login-text {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.8);
+}
+
+.login-form-inner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(30px) scale(0.8);
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.login-card:hover .login-form-inner {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.input-group {
+    position: relative;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.login-input {
+    width: 100%;
+    padding: 12px 10px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 3px solid #000;
+    font-weight: 700;
+    color: #000;
+    box-shadow: 4px 4px 0 #000;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.login-input:focus {
+    outline: none;
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 #000;
+}
+
+.login-input::placeholder {
+    color: #000;
+    opacity: 0.6;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 12px;
+    background: #000;
+    color: #fff;
+    border: none;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 rgba(255, 255, 255, 0.3);
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.login-btn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 rgba(255, 255, 255, 0.3);
+    background: #333;
 }
 
 .login-error {
     color: #ff6b6b;
     text-align: center;
-    margin-bottom: 20px;
-    padding: 12px;
+    margin-bottom: 15px;
+    padding: 10px;
     background: rgba(255, 107, 107, 0.2);
-    border-radius: 12px;
-    font-size: 14px;
-    border: 1px solid rgba(255, 107, 107, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border-radius: 8px;
+    font-size: 12px;
+    border: 2px solid #000;
+    width: 100%;
+    box-shadow: 2px 2px 0 #000;
+}
+
+.login-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.4),
+        transparent
+    );
+    transition: left 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.login-card:hover::before {
+    left: 100%;
+}
+
+.login-card::after {
+    content: "";
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 20px;
+    height: 20px;
+    background: #000;
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+    transition: all 0.6s ease;
+}
+
+.login-card:hover::after {
+    transform: scale(1) rotate(0deg);
+    background: rgb(246, 168, 116);
 }
 
 /* 容器样式 */
@@ -309,7 +403,7 @@ body {
 .sidebar-menu {
     flex: 1;
     padding: 10px 0;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 /* 菜单项样式 */
@@ -347,7 +441,7 @@ body {
 /* 右侧内容区域 */
 .content-area {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
     background-color: var(--bg-color);
 }
 

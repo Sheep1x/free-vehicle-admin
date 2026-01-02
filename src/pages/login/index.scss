@@ -5,8 +5,44 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+// 背景装饰
+.login-container::before {
+  content: '';
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  top: -100px;
+  left: -100px;
+  animation: float 6s ease-in-out infinite;
+}
+
+.login-container::after {
+  content: '';
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  bottom: -75px;
+  right: -75px;
+  animation: float 8s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(30px, -30px) scale(1.1);
+  }
 }
 
 .login-header {
@@ -14,64 +50,92 @@
   flex-direction: column;
   align-items: center;
   margin-bottom: 40px;
+  position: relative;
+  z-index: 10;
 }
 
 .app-icon {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.app-icon:hover {
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
 }
 
 .app-title {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: bold;
-  color: #1890ff;
-  margin-bottom: 8px;
+  color: white;
+  margin-bottom: 12px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .app-subtitle {
-  font-size: 16px;
-  color: #666;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
 }
 
 .login-form {
   width: 100%;
   max-width: 400px;
-  background-color: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+.login-form:hover {
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
 }
 
 .input-group {
-  margin-bottom: 24px;
+  margin-bottom: 30px;
+  position: relative;
 }
 
 .input-label {
   display: block;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: #333;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .input-field {
   width: 100%;
-  height: 48px;
-  padding: 0 16px;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
+  height: 50px;
+  padding: 0 20px;
+  border: 2px solid #e1e5e9;
+  border-radius: 25px;
   font-size: 16px;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
   box-sizing: border-box;
+  background: transparent;
+  color: #333;
 }
 
 .input-field:focus {
   outline: none;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  transform: translateY(-2px);
+}
+
+.input-field::placeholder {
+  color: #a0aec0;
 }
 
 .password-input-wrapper {
@@ -79,63 +143,119 @@
 }
 
 .password-input {
-  padding-right: 80px;
+  padding-right: 60px;
 }
 
 .password-toggle {
   position: absolute;
-  right: 8px;
+  right: 15px;
   top: 50%;
   transform: translateY(-50%);
-  height: 32px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 16px;
   font-size: 14px;
-  color: #1890ff;
+  color: #667eea;
   background-color: transparent;
   border: none;
+  border-radius: 18px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.password-toggle:hover {
+  background-color: rgba(102, 126, 234, 0.1);
+  transform: translateY(-50%) scale(1.05);
 }
 
 .error-message {
-  margin-bottom: 20px;
-  padding: 12px 16px;
-  background-color: #fff2f0;
-  border: 1px solid #ffccc7;
-  border-radius: 8px;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background-color: rgba(245, 34, 45, 0.1);
+  border: 2px solid rgba(245, 34, 45, 0.2);
+  border-radius: 12px;
+  position: relative;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-10px);
+  }
+  75% {
+    transform: translateX(10px);
+  }
 }
 
 .error-message text {
   color: #f5222d;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .login-button {
   width: 100%;
-  height: 48px;
-  font-size: 16px;
-  font-weight: 500;
-  border-radius: 8px;
-  background-color: #1890ff;
+  height: 52px;
+  font-size: 18px;
+  font-weight: 600;
+  border-radius: 26px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
   color: white;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: all 0.5s ease;
+}
+
+.login-button:hover::before {
+  left: 100%;
 }
 
 .login-button:hover {
-  background-color: #40a9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(102, 126, 234, 0.5);
 }
 
 .login-button:active {
-  background-color: #096dd9;
+  transform: translateY(0);
+  box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .login-tips {
-  margin-top: 20px;
+  margin-top: 24px;
   text-align: center;
+  position: relative;
+  z-index: 10;
 }
 
 .tip-text {
   font-size: 14px;
-  color: #999;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
 }
 
 // 适配不同屏幕尺寸
@@ -145,7 +265,36 @@
   }
 
   .login-form {
-    padding: 24px;
+    padding: 30px 24px;
+  }
+
+  .app-icon {
+    width: 80px;
+    height: 80px;
+  }
+
+  .app-title {
+    font-size: 24px;
+  }
+
+  .input-field {
+    height: 46px;
+    font-size: 15px;
+  }
+
+  .login-button {
+    height: 48px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-form {
+    padding: 24px 20px;
+  }
+
+  .input-group {
+    margin-bottom: 24px;
   }
 
   .app-icon {
@@ -156,24 +305,59 @@
   .app-title {
     font-size: 20px;
   }
+}
 
-  .input-field {
-    height: 44px;
-    font-size: 15px;
+// 加载动画
+.login-button[loading]::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
   }
-
-  .login-button {
-    height: 44px;
-    font-size: 15px;
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
   }
 }
 
-@media (max-width: 480px) {
-  .login-form {
-    padding: 20px;
-  }
+// 输入框聚焦动画
+.input-group:focus-within .input-label {
+  color: #667eea;
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
 
-  .input-group {
-    margin-bottom: 20px;
+// 标题动画
+.app-title, .app-subtitle {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.app-icon {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+.login-form {
+  animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
