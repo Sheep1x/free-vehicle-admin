@@ -66,24 +66,12 @@ export const useAuthStore = create<AuthStore>()(
 
     login: async (username: string, password: string) => {
       set({isLoading: true, error: null})
-      
-      // 添加调试日志
-      console.log('开始登录流程，用户名:', username)
 
       try {
         const response = await loginApi(username, password)
-        
-        console.log('loginApi响应:', response)
 
         if (response.success && response.user) {
-          console.log('用户信息获取成功:', response.user.username, '，角色:', response.user.role)
-          console.log('存储的密码哈希:', response.user.password)
-          
-          // 使用标准bcrypt验证密码，与admin面板保持一致
-          console.log('开始验证密码...')
           const isPasswordValid = await verifyPassword(password, response.user.password, response.user.created_at)
-          
-          console.log('密码验证结果:', isPasswordValid)
           
           if (isPasswordValid) {
             // 获取用户所属收费站信息
@@ -93,13 +81,12 @@ export const useAuthStore = create<AuthStore>()(
               isLoggedIn: true,
               user: {
                 ...response.user,
-                station_info: stationInfo // 添加收费站信息到用户对象
+                station_info: stationInfo
               },
               loginTime: Date.now(),
               isLoading: false,
               error: null
             })
-            console.log('登录成功，用户已登录:', response.user.username)
             return true
           } else {
             set({
@@ -108,7 +95,6 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false,
               error: '用户名或密码错误'
             })
-            console.log('登录失败：密码验证失败')
             return false
           }
         } else {
@@ -118,18 +104,15 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: response.message || '登录失败'
           })
-          console.log('登录失败：API响应失败，消息:', response.message)
           return false
         }
       } catch (error) {
-        console.error('登录异常:', error)
         set({
           isLoggedIn: false,
           user: null,
           isLoading: false,
           error: '登录失败，请稍后重试'
         })
-        console.log('登录失败：捕获到异常，错误:', error)
         return false
       }
     },
@@ -177,7 +160,7 @@ export const useAuthStore = create<AuthStore>()(
           }
         }
       } catch (error) {
-        console.error('恢复登录状态失败:', error)
+        // 忽略错误，继续执行
       }
 
       // 3. 无法恢复或会话超时
@@ -200,7 +183,7 @@ export const useAuthStore = create<AuthStore>()(
             }
           })
         } catch (error) {
-          console.error('更新用户收费站信息失败:', error)
+          // 忽略错误，继续执行
         }
       }
     }

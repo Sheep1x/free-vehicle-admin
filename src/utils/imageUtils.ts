@@ -24,8 +24,7 @@ export const imageToBase64 = async (imagePath: string): Promise<string> => {
             const base64String = `data:${mimeType};base64,${res.data}`
             resolve(base64String)
           },
-          fail: (error) => {
-            console.error('读取图片文件失败:', error)
+          fail: () => {
             reject(new Error('图片转换失败'))
           }
         })
@@ -47,8 +46,7 @@ export const imageToBase64 = async (imagePath: string): Promise<string> => {
             ctx.drawImage(img, 0, 0)
             const base64String = canvas.toDataURL('image/jpeg', 0.8)
             resolve(base64String)
-          } catch (error) {
-            console.error('Canvas转换失败:', error)
+          } catch {
             reject(new Error('图片处理失败'))
           }
         }
@@ -57,8 +55,7 @@ export const imageToBase64 = async (imagePath: string): Promise<string> => {
         }
         img.src = imagePath
       }
-    } catch (error) {
-      console.error('图片转base64出错:', error)
+    } catch {
       reject(new Error('图片处理失败'))
     }
   })
@@ -66,7 +63,7 @@ export const imageToBase64 = async (imagePath: string): Promise<string> => {
 
 // 压缩图片
 export function compressImage(imagePath: string, quality = 0.8): Promise<string> {
-  return new Promise((resolve, _reject) => {
+  return new Promise((resolve) => {
     if (Taro.getEnv() === Taro.ENV_TYPE.WEB) {
       // H5环境
       resolve(imagePath)
@@ -78,8 +75,8 @@ export function compressImage(imagePath: string, quality = 0.8): Promise<string>
         success: (res) => {
           resolve(res.tempFilePath)
         },
-        fail: (error) => {
-          console.warn('图片压缩失败，使用原图:', error)
+        fail: () => {
+          // 压缩失败时使用原图
           resolve(imagePath)
         }
       })

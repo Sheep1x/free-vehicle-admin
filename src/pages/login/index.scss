@@ -151,20 +151,99 @@
   right: 15px;
   top: 50%;
   transform: translateY(-50%);
+  width: 36px;
   height: 36px;
-  padding: 0 16px;
-  font-size: 14px;
+  padding: 0;
+  font-size: 0;
   color: #667eea;
   background-color: transparent;
   border: none;
   border-radius: 18px;
   transition: all 0.3s ease;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.password-toggle::before,
+.password-toggle::after {
+  content: none;
 }
 
 .password-toggle:hover {
   background-color: rgba(102, 126, 234, 0.1);
   transform: translateY(-50%) scale(1.05);
+}
+
+.password-toggle .button-content {
+  display: none;
+}
+
+/* 锁图标样式 */
+.lock-icon {
+  position: relative;
+  width: 18px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 锁身 */
+.lock-body {
+  width: 14px;
+  height: 12px;
+  background-color: #667eea;
+  border-radius: 2px 2px 8px 8px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* 锁孔 */
+.lock-body::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+/* 锁梁 */
+.lock-shackle {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 8px;
+  border: 2px solid #667eea;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  transition: all 0.3s ease;
+}
+
+/* 解锁状态 - 锁梁旋转 */
+.unlock .lock-shackle {
+  transform: translateX(-50%) rotate(-45deg);
+  top: -2px;
+}
+
+/* 解锁状态 - 锁身颜色变化 */
+.unlock .lock-body {
+  background-color: #4CAF50;
+}
+
+/* 解锁状态 - 锁梁颜色变化 */
+.unlock .lock-shackle {
+  border-color: #4CAF50;
 }
 
 .error-message {

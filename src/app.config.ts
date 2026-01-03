@@ -40,5 +40,7 @@ export default defineAppConfig({
     navigationBarBackgroundColor: '#1890FF',
     navigationBarTitleText: '免费车登记',
     navigationBarTextStyle: 'white'
-  }
+  },
+  // 开启组件按需注入特性
+  lazyCodeLoading: 'requiredComponents'
 })

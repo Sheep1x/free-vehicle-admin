@@ -88,7 +88,6 @@ const Result: React.FC = () => {
   const loadStaffData = useCallback(async () => {
     try {
       if (!user?.id) {
-        console.error('用户未登录，无法加载人员数据')
         return
       }
 
@@ -106,8 +105,8 @@ const Result: React.FC = () => {
         const shift = getCurrentShift(shifts)
         setCurrentShift(shift)
       }
-    } catch (error) {
-      console.error('加载人员数据失败:', error)
+    } catch {
+      // 忽略错误，继续执行
     }
   }, [user?.id])
 
@@ -160,8 +159,8 @@ const Result: React.FC = () => {
         const monitorValue = result.monitor || ''
         setMonitor(monitorValue)
         setMonitorSearch(monitorValue)
-      } catch (error) {
-        console.error('解析识别结果失败:', error)
+      } catch {
+        // 忽略解析错误
       }
     }
   }, [router.params, processEntryInfo])
@@ -183,15 +182,22 @@ const Result: React.FC = () => {
 
     try {
       // 1. 压缩图片
+      console.log('开始压缩图片:', localImageUrl)
       const compressedPath = await compressImage(localImageUrl, 0.8)
+      console.log('图片压缩成功:', compressedPath)
 
       // 2. 转换为Base64
+      console.log('开始转换为Base64')
       const base64Image = await imageToBase64(compressedPath)
+      console.log('Base64转换成功，长度:', base64Image.length)
 
       // 3. 调用OCR识别
+      console.log('开始OCR识别')
+      console.log('OCR接口地址:', process.env.TARO_APP_VITE_OCR_ENDPOINT)
       const result: OCRResult = await recognizeTollReceipt(base64Image)
+      console.log('OCR识别成功:', result)
 
-      Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
+      Taro.hideLoading({fail: () => {}})
 
       // 4. 更新表单数据
       setPlateNumber(result.plateNumber || '')
@@ -210,11 +216,12 @@ const Result: React.FC = () => {
         icon: 'success'
       })
     } catch (error) {
-      console.error('识别失败:', error)
-      Taro.hideLoading({fail: () => {}}) // 添加fail回调，忽略隐藏失败的错误
+      console.error('识别过程错误:', error)
+      Taro.hideLoading({fail: () => {}})
       Taro.showToast({
-        title: '识别失败，请重试',
-        icon: 'none'
+        title: `识别失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        icon: 'none',
+        duration: 3000
       })
     } finally {
       setIsRecognizing(false)

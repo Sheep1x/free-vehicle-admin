@@ -27,10 +27,8 @@ const Home: React.FC = () => {
     } catch (error: any) {
       // 当用户取消操作时，不显示失败提示
       if (error.errMsg === 'chooseImage:fail cancel') {
-        console.log('用户取消了图片选择')
         return
       }
-      console.error('选择图片失败:', error)
       Taro.showToast({
         title: '选择图片失败',
         icon: 'none'
@@ -54,10 +52,8 @@ const Home: React.FC = () => {
     } catch (error: any) {
       // 当用户取消操作时，不显示失败提示
       if (error.errMsg === 'chooseImage:fail cancel') {
-        console.log('用户取消了拍照')
         return
       }
-      console.error('拍照失败:', error)
       Taro.showToast({
         title: '拍照失败',
         icon: 'none'
@@ -82,13 +78,20 @@ const Home: React.FC = () => {
 
     try {
       // 1. 压缩图片
+      console.log('开始压缩图片:', selectedImage)
       const compressedPath = await compressImage(selectedImage, 0.8)
+      console.log('图片压缩成功:', compressedPath)
 
       // 2. 转换为Base64
+      console.log('开始转换为Base64')
       const base64Image = await imageToBase64(compressedPath)
+      console.log('Base64转换成功，长度:', base64Image.length)
 
       // 3. 调用OCR识别
+      console.log('开始OCR识别')
+      console.log('OCR接口地址:', process.env.TARO_APP_VITE_OCR_ENDPOINT)
       const result: OCRResult = await recognizeTollReceipt(base64Image)
+      console.log('OCR识别成功:', result)
 
       Taro.hideLoading({fail: () => {}})
 
@@ -102,11 +105,12 @@ const Home: React.FC = () => {
         )}`
       })
     } catch (error) {
-      console.error('识别失败:', error)
+      console.error('识别过程错误:', error)
       Taro.hideLoading({fail: () => {}})
       Taro.showToast({
-        title: '识别失败，请重试',
-        icon: 'none'
+        title: `识别失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        icon: 'none',
+        duration: 3000
       })
     } finally {
       setIsRecognizing(false)

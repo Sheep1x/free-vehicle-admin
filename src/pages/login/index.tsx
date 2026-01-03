@@ -82,8 +82,11 @@ const Login: React.FC = () => {
                 autoComplete="current-password"
                 type={showPassword ? 'text' : 'password'}
               />
-              <Button className="password-toggle" type="text" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? '隐藏' : '显示'}
+              <Button className={`password-toggle ${showPassword ? 'unlock' : 'lock'}`} type="text" onClick={() => setShowPassword(!showPassword)}>
+                <View className="lock-icon">
+                  <View className="lock-body"></View>
+                  <View className="lock-shackle"></View>
+                </View>
               </Button>
             </View>
           </View>
