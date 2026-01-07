@@ -197,6 +197,141 @@ export async function getTollRecordsByPlateNumber(plateNumber: string): Promise<
   }
 }
 
+// 根据管理员ID获取可访问的收费记录（按收费站权限筛选）
+export async function getTollRecordsByAdminId(adminId: string): Promise<TollRecord[]> {
+  try {
+    // 获取管理员信息
+    const {data: adminData, error: adminError} = await supabase
+      .from('admin_users')
+      .select('role, station_id, company_id')
+      .eq('id', adminId)
+      .single()
+
+    if (adminError || !adminData) {
+      console.error('获取管理员信息失败:', adminError)
+      return []
+    }
+
+    // 获取所有收费员，包括他们的班组和收费站信息
+    const {data: collectorsData, error: collectorsError} = await supabase
+      .from('toll_collectors_info')
+      .select(`
+        id,
+        code,
+        toll_groups (
+          station_id
+        )
+      `)
+
+    if (collectorsError) {
+      console.error('获取收费员信息失败:', collectorsError)
+      return []
+    }
+
+    // 根据管理员角色确定可访问的收费站ID列表
+    let accessibleStationIds: string[] = []
+
+    if (adminData.role === 'super_admin') {
+      // 超级管理员：不做限制，所有收费站都可以访问
+      // 这里不限制，后面查询所有记录
+    } else if (adminData.role === 'company_admin' && adminData.company_id) {
+      // 分公司管理员：获取所属公司的所有收费站
+      const {data: stationsData} = await supabase
+        .from('toll_stations')
+        .select('id')
+        .eq('company_id', adminData.company_id)
+
+      accessibleStationIds = (stationsData || []).map(s => s.id)
+    } else if (adminData.role === 'station_admin' && adminData.station_id) {
+      // 收费站管理员：只能查看自己所属收费站
+      accessibleStationIds = [adminData.station_id]
+    } else {
+      // 没有权限，返回空
+      return []
+    }
+
+    // 获取所有收费记录
+    let query = supabase
+      .from('toll_records')
+      .select('*')
+      .order('created_at', {ascending: false})
+
+    const {data: allRecords, error: recordsError} = await query
+
+    if (recordsError) {
+      console.error('获取收费记录失败:', recordsError)
+      return []
+    }
+
+    const allRecordsData = allRecords || []
+
+    // 如果是超级管理员，返回所有记录
+    if (adminData.role === 'super_admin') {
+      return allRecordsData as TollRecord[]
+    }
+
+    // 过滤记录：只返回属于可访问收费站的记录
+    const filteredRecords = allRecordsData.filter(record => {
+      // 通过收费员信息获取收费站ID
+      const parts = record.toll_collector?.split(' ')
+      let collectorStationId = null
+
+      if (parts && parts.length >= 2) {
+        const employeeCode = parts[0] // 使用code而不是id
+        const collector = collectorsData?.find(c => c.code === employeeCode) // 按code匹配
+        if (collector?.toll_groups?.station_id) {
+          collectorStationId = collector.toll_groups.station_id
+        }
+      }
+
+      // 如果找不到收费员信息，跳过
+      if (!collectorStationId) {
+        return false
+      }
+
+      // 检查是否属于可访问的收费站
+      return accessibleStationIds.includes(collectorStationId)
+    })
+
+    return filteredRecords as TollRecord[]
+  } catch (error) {
+    console.error('获取可访问的收费记录异常:', error)
+    return []
+  }
+}
+
+// 获取带图片信息的收费记录（用于历史记录页面）
+export async function getTollRecordsWithImages(adminId: string): Promise<(TollRecord & {images?: TollRecordImage[]})[]> {
+  try {
+    const records = await getTollRecordsByAdminId(adminId)
+
+    // 获取所有图片信息
+    const {data: allImages, error: imagesError} = await supabase
+      .from('toll_record_images')
+      .select('*')
+      .order('created_at', {ascending: true})
+
+    if (imagesError) {
+      console.error('获取图片信息失败:', imagesError)
+      return records as (TollRecord & {images?: TollRecordImage[]})[]
+    }
+
+    // 将图片信息关联到记录
+    const recordsWithImages = records.map(record => {
+      const recordImages = (allImages || []).filter(img => img.record_id === record.id)
+      return {
+        ...record,
+        images: recordImages
+      }
+    })
+
+    return recordsWithImages
+  } catch (error) {
+    console.error('获取带图片的收费记录异常:', error)
+    return []
+  }
+}
+
 // 删除收费记录
 export async function deleteTollRecords(ids: string[]): Promise<boolean> {
   try {

@@ -70,11 +70,12 @@ function renderUsers() {
   // 根据当前用户角色过滤用户列表
   let filteredUsers = allUsers;
   
-  // 角色权限级别: super_admin > company_admin > station_admin
+  // 角色权限级别: super_admin > company_admin > station_admin/centers_admin
   const roleHierarchy = {
     'super_admin': 3,
     'company_admin': 2,
-    'station_admin': 1
+    'station_admin': 1,
+    'centers_admin': 1
   };
   
   // 确保currentUser不为null
@@ -200,7 +201,7 @@ function showAddUserModal() {
   let roleOptions = '';
   let canAddUsers = false;
   
-  // 角色权限级别: super_admin > company_admin > station_admin
+  // 角色权限级别: super_admin > company_admin > station_admin/centers_admin
   // 超级严格限制：低级用户完全看不到高级角色选项
   switch(currentUser.role) {
     case 'super_admin':
@@ -209,18 +210,21 @@ function showAddUserModal() {
         <option value="super_admin">超级管理员</option>
         <option value="company_admin">分公司管理员</option>
         <option value="station_admin">收费站管理员</option>
+        <option value="centers_admin">信调中心管理员</option>
       `;
       canAddUsers = true;
       break;
     case 'company_admin':
-      // 分公司管理员只能添加更低级别的角色（收费站管理员），完全看不到高级角色选项
+      // 分公司管理员可以添加更低级别的角色（收费站管理员和信调中心管理员），完全看不到高级角色选项
       roleOptions = `
         <option value="station_admin">收费站管理员</option>
+        <option value="centers_admin">信调中心管理员</option>
       `;
       canAddUsers = true;
       break;
     case 'station_admin':
-      // 收费站管理员是最低级别，不能添加任何角色
+    case 'centers_admin':
+      // 收费站管理员和信调中心管理员是最低级别，不能添加任何角色
       roleOptions = '';
       canAddUsers = false;
       break;
@@ -287,7 +291,8 @@ async function addUser() {
   const roleHierarchy = {
     'super_admin': 3,
     'company_admin': 2,
-    'station_admin': 1
+    'station_admin': 1,
+    'centers_admin': 1
   };
   
   // 确保currentUser不为null
@@ -350,11 +355,12 @@ function editUser(id) {
   const user = allUsers.find(u => u.id === id)
   if (!user) return
   
-  // 角色权限级别: super_admin > company_admin > station_admin
+  // 角色权限级别: super_admin > company_admin > station_admin/centers_admin
   const roleHierarchy = {
     'super_admin': 3,
     'company_admin': 2,
-    'station_admin': 1
+    'station_admin': 1,
+    'centers_admin': 1
   };
   
   // 当前用户的权限级别
@@ -393,32 +399,38 @@ function editUser(id) {
         roleOptions = `
           <option value="company_admin" selected>分公司管理员</option>
           <option value="station_admin">收费站管理员</option>
+          <option value="centers_admin">信调中心管理员</option>
         `;
-      } else {
+      } else if (user.role === 'station_admin' || user.role === 'centers_admin') {
         roleOptions = `
-          <option value="station_admin" selected>收费站管理员</option>
+          <option value="station_admin" ${user.role === 'station_admin' ? 'selected' : ''}>收费站管理员</option>
+          <option value="centers_admin" ${user.role === 'centers_admin' ? 'selected' : ''}>信调中心管理员</option>
         `;
       }
       break;
     case 'company_admin':
       // 分公司管理员只能编辑更低或相同级别的角色，完全看不到高级角色选项
       if (user.role === 'company_admin') {
-        // 分公司管理员可以将自己降级为收费站管理员，但不能升级
+        // 分公司管理员可以将自己降级为收费站管理员或信调中心管理员，但不能升级
         roleOptions = `
           <option value="company_admin" selected>分公司管理员</option>
           <option value="station_admin">收费站管理员</option>
+          <option value="centers_admin">信调中心管理员</option>
         `;
-      } else if (user.role === 'station_admin') {
-        // 只能编辑收费站管理员，不能升级
+      } else if (user.role === 'station_admin' || user.role === 'centers_admin') {
+        // 只能编辑收费站管理员和信调中心管理员，不能升级
         roleOptions = `
-          <option value="station_admin" selected>收费站管理员</option>
+          <option value="station_admin" ${user.role === 'station_admin' ? 'selected' : ''}>收费站管理员</option>
+          <option value="centers_admin" ${user.role === 'centers_admin' ? 'selected' : ''}>信调中心管理员</option>
         `;
       }
       break;
     case 'station_admin':
-      // 收费站管理员只能编辑相同级别的角色，完全看不到高级角色选项
+    case 'centers_admin':
+      // 收费站管理员和信调中心管理员只能编辑相同级别的角色，完全看不到高级角色选项
       roleOptions = `
-        <option value="station_admin" selected>收费站管理员</option>
+        <option value="station_admin" ${user.role === 'station_admin' ? 'selected' : ''}>收费站管理员</option>
+        <option value="centers_admin" ${user.role === 'centers_admin' ? 'selected' : ''}>信调中心管理员</option>
       `;
       break;
   }
@@ -500,11 +512,12 @@ async function deleteUser(id) {
   const user = allUsers.find(u => u.id === id)
   if (!user) return
   
-  // 角色权限级别: super_admin > company_admin > station_admin
+  // 角色权限级别: super_admin > company_admin > station_admin/centers_admin
   const roleHierarchy = {
     'super_admin': 3,
     'company_admin': 2,
-    'station_admin': 1
+    'station_admin': 1,
+    'centers_admin': 1
   };
   
   // 当前用户的权限级别

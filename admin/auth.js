@@ -162,16 +162,12 @@ async function showMainApp() {
 
 // 根据角色标识符获取角色名称
 function getRoleName(role) {
-  // 动态判断是否为信调中心管理员
-  const isCentersAdmin = currentUser && currentUser.role === 'station_admin' && currentUser.company_id;
-  if (isCentersAdmin) {
-    return '信调中心管理员';
-  }
-  
+  // 角色映射
   const roleMap = {
     super_admin: '超级管理员',
     company_admin: '分公司管理员',
-    station_admin: '收费站管理员'
+    station_admin: '收费站管理员',
+    centers_admin: '信调中心管理员'
   };
   return roleMap[role] || '未知角色';
 }
@@ -184,15 +180,12 @@ function setUserPermissions(role) {
   allMenuItems.forEach(item => {
     item.style.display = 'flex';
   });
-  
-  // 动态判断是否为信调中心管理员
-  const isCentersAdmin = currentUser && currentUser.role === 'station_admin' && currentUser.company_id;
 
   if (role === 'company_admin') {
     // 分公司管理员不能管理分公司，但可以管理用户
     document.querySelector('.menu-item[onclick*="companies"]').style.display = 'none';
     // document.querySelector('.menu-item[onclick*="users"]').style.display = 'none'; // 允许分公司管理员查看用户管理页面
-  } else if (isCentersAdmin) {
+  } else if (role === 'centers_admin') {
     // 信调中心管理员：显示监控员管理，隐藏收费员管理
     document.querySelector('.menu-item[onclick*="companies"]').style.display = 'none';
     document.querySelector('.menu-item[onclick*="stations"]').style.display = 'none';

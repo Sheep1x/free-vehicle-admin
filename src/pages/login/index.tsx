@@ -1,4 +1,4 @@
-import {Button, Image, Input, Text, View} from '@tarojs/components'
+import {Image, Input, Text, View} from '@tarojs/components'
 import Taro, {reLaunch, switchTab} from '@tarojs/taro'
 import type React from 'react'
 import {useState} from 'react'
@@ -82,7 +82,9 @@ const Login: React.FC = () => {
                 autoComplete="current-password"
                 type={showPassword ? 'text' : 'password'}
               />
-              <View className={`password-toggle ${showPassword ? 'unlock' : 'lock'}`} onClick={() => setShowPassword(!showPassword)}>
+              <View
+                className={`password-toggle ${showPassword ? 'unlock' : 'lock'}`}
+                onClick={() => setShowPassword(!showPassword)}>
                 <View className="lock-icon">
                   <View className="lock-body"></View>
                   <View className="lock-shackle"></View>
@@ -99,13 +101,10 @@ const Login: React.FC = () => {
           )}
 
           {/* 登录按钮 */}
-          <View
-            className={`login-button ${isLoading ? 'loading' : ''}`}
-            onClick={isLoading ? undefined : handleLogin}>
+          <View className={`login-button ${isLoading ? 'loading' : ''}`} onClick={isLoading ? undefined : handleLogin}>
             {isLoading ? '' : '登录'}
           </View>
-
-          </View>
+        </View>
       </View>
     </AuthGuard>
   )

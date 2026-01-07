@@ -17,7 +17,7 @@ const STORAGE_KEYS = {
 export async function verifyPassword(
   plainPassword: string,
   hashedPassword: string,
-  createdAt?: string // 保留参数以保持兼容性，但不再使用
+  _createdAt?: string // 保留参数以保持兼容性，但不再使用
 ): Promise<boolean> {
   try {
     // 检查是否是自定义哈希格式：hashed_密码_时间戳
@@ -30,10 +30,10 @@ export async function verifyPassword(
         return plainPassword === extractedPassword
       }
     }
-    
+
     // 否则尝试使用bcrypt验证（后备方案）
     return await bcrypt.compare(plainPassword, hashedPassword)
-  } catch (error) {
+  } catch (_error) {
     return false
   }
 }
@@ -48,7 +48,7 @@ export async function getUserByUsername(username: string): Promise<AdminUser | n
     }
 
     return data as AdminUser
-  } catch (error) {
+  } catch (_error) {
     return null
   }
 }
@@ -90,7 +90,7 @@ export async function login(username: string, password: string): Promise<LoginRe
       success: true,
       user
     }
-  } catch (error) {
+  } catch (_error) {
     return {
       success: false,
       message: '登录失败，请稍后重试'
@@ -109,7 +109,7 @@ export async function saveLoginState(user: AdminUser, loginTime: number): Promis
       taroStorage.setItem(STORAGE_KEYS.LOGIN_TIME, loginTime.toString()),
       taroStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, generateSessionToken(user.id))
     ])
-  } catch (error) {
+  } catch (_error) {
     // 忽略错误，继续执行
   }
 }
@@ -129,7 +129,7 @@ export async function getCurrentUser(): Promise<AdminUser | null> {
       return null
     }
     return JSON.parse(userStr) as AdminUser
-  } catch (error) {
+  } catch (_error) {
     return null
   }
 }
@@ -154,7 +154,7 @@ export async function checkLoginStatus(): Promise<boolean> {
     }
 
     return true
-  } catch (error) {
+  } catch (_error) {
     return false
   }
 }
@@ -167,7 +167,7 @@ export async function logout(): Promise<void> {
       taroStorage.removeItem(STORAGE_KEYS.LOGIN_TIME),
       taroStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN)
     ])
-  } catch (error) {
+  } catch (_error) {
     // 忽略错误，继续执行
   }
 }
@@ -182,7 +182,7 @@ export async function getUserStation(userId: string): Promise<string | null> {
     }
 
     return data.station_id
-  } catch (error) {
+  } catch (_error) {
     return null
   }
 }
@@ -201,7 +201,7 @@ export async function getCollectorsByStationId(stationId: string): Promise<any[]
     }
 
     return data || []
-  } catch (error) {
+  } catch (_error) {
     return []
   }
 }
@@ -216,7 +216,7 @@ export async function getMonitorsByStationId(stationId: string): Promise<any[]> 
     }
 
     return data || []
-  } catch (error) {
+  } catch (_error) {
     return []
   }
 }

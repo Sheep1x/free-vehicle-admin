@@ -18,13 +18,13 @@ async function loadStations() {
     if (currentUser) {
       // 动态判断权限：
       // - 分公司管理员可以看到自己分公司下的所有收费站
-      // - 收费站管理员如果关联了分公司，可以看到该分公司的所有收费站
+      // - 信调中心管理员可以看到自己分公司下的所有收费站
       // - 普通收费站管理员只能看到自己管理的收费站
-      const canSeeAllCompanyStations = currentUser.role === 'company_admin' || 
-                                      (currentUser.role === 'station_admin' && currentUser.company_id);
-      
-      if (canSeeAllCompanyStations) {
-        // 分公司管理员或关联了分公司的收费站管理员可以看到自己分公司下的所有收费站
+      if (currentUser.role === 'company_admin') {
+        // 分公司管理员可以看到自己分公司下的所有收费站
+        query = query.eq('company_id', currentUser.company_id)
+      } else if (currentUser.role === 'centers_admin') {
+        // 信调中心管理员可以看到自己分公司下的所有收费站
         query = query.eq('company_id', currentUser.company_id)
       } else if (currentUser.role === 'station_admin') {
         // 普通收费站管理员只能看到自己管理的收费站
@@ -84,13 +84,13 @@ async function loadStations() {
       if (currentUser) {
         // 动态判断权限：
         // - 分公司管理员可以看到自己分公司下的所有收费站
-        // - 收费站管理员如果关联了分公司，可以看到该分公司的所有收费站
+        // - 信调中心管理员可以看到自己分公司下的所有收费站
         // - 普通收费站管理员只能看到自己管理的收费站
-        const canSeeAllCompanyStations = currentUser.role === 'company_admin' || 
-                                        (currentUser.role === 'station_admin' && currentUser.company_id);
-        
-        if (canSeeAllCompanyStations) {
-          // 分公司管理员或关联了分公司的收费站管理员可以看到自己分公司下的所有收费站
+        if (currentUser.role === 'company_admin') {
+          // 分公司管理员可以看到自己分公司下的所有收费站
+          query = query.eq('company_id', currentUser.company_id)
+        } else if (currentUser.role === 'centers_admin') {
+          // 信调中心管理员可以看到自己分公司下的所有收费站
           query = query.eq('company_id', currentUser.company_id)
         } else if (currentUser.role === 'station_admin') {
           // 普通收费站管理员只能看到自己管理的收费站

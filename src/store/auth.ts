@@ -72,11 +72,11 @@ export const useAuthStore = create<AuthStore>()(
 
         if (response.success && response.user) {
           const isPasswordValid = await verifyPassword(password, response.user.password, response.user.created_at)
-          
+
           if (isPasswordValid) {
             // 获取用户所属收费站信息
             const stationInfo = await getStationByAdminId(response.user.id)
-            
+
             set({
               isLoggedIn: true,
               user: {
@@ -106,7 +106,7 @@ export const useAuthStore = create<AuthStore>()(
           })
           return false
         }
-      } catch (error) {
+      } catch (_error) {
         set({
           isLoggedIn: false,
           user: null,
@@ -159,7 +159,7 @@ export const useAuthStore = create<AuthStore>()(
             return true
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // 忽略错误，继续执行
       }
 
@@ -182,7 +182,7 @@ export const useAuthStore = create<AuthStore>()(
               station_info: stationInfo
             }
           })
-        } catch (error) {
+        } catch (_error) {
           // 忽略错误，继续执行
         }
       }

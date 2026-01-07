@@ -3,11 +3,13 @@ import Taro, {useRouter} from '@tarojs/taro'
 import type React from 'react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import AuthGuard from '@/components/AuthGuard'
+import {supabase} from '@/client/supabase'
 import {
   createTollRecord,
   getAccessibleCollectors,
   getAccessibleMonitors,
   getCurrentShift,
+  getRecordImages,
   getShiftSettings
 } from '@/db/api'
 import {useAuthStore} from '@/store/auth'
@@ -141,8 +143,45 @@ const Result: React.FC = () => {
     if (data) {
       try {
         const result = JSON.parse(decodeURIComponent(data))
-        setLocalImageUrl(result.imageUrl || '') // 保存本地路径用于重新识别
-        setImageUrl(result.imageUrl || '') // 直接使用本地URL，保存时再上传
+        
+        // 如果有记录ID，从toll_record_images表获取图片
+        const loadRecordImages = async () => {
+          if (result.recordId) {
+            try {
+              const {data: images} = await supabase
+                .from('toll_record_images')
+                .select('*')
+                .eq('record_id', result.recordId)
+                .order('created_at', {ascending: true})
+              
+              if (images && images.length > 0) {
+                // 优先使用toll_record_images表中的图片
+                setImageUrl(images[0].image_url)
+                // 如果本地没有图片路径，也设置一下（但这只能用于显示，不能用于重新识别）
+                if (!localImageUrl) {
+                  setLocalImageUrl(images[0].image_url)
+                }
+              } else if (result.imageUrl) {
+                // 如果没有找到图片，使用传入的图片URL
+                setLocalImageUrl(result.imageUrl)
+                setImageUrl(result.imageUrl)
+              }
+            } catch (error) {
+              console.error('获取记录图片失败:', error)
+              if (result.imageUrl) {
+                setLocalImageUrl(result.imageUrl)
+                setImageUrl(result.imageUrl)
+              }
+            }
+          } else if (result.imageUrl) {
+            // 没有记录ID，直接使用传入的图片URL
+            setLocalImageUrl(result.imageUrl)
+            setImageUrl(result.imageUrl)
+          }
+        }
+        
+        loadRecordImages()
+        
         setPlateNumber(result.plateNumber || '')
         setVehicleType(result.vehicleType || '')
         setAxleCount(result.axleCount || '')

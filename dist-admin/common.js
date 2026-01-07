@@ -39,48 +39,86 @@ function applyRoleBasedFilter(query, userType, currentUser, allStations = [], al
     return query;
   }
 
+  // 权限等级判断：公司管理员 > 信调中心管理员/收费站管理员
+  const isCompanyLevelAccess = currentUser.role === 'company_admin';
+  
+  // 信调中心管理员和收费站管理员都具有相同的权限级别，使用各自的过滤逻辑
+
   switch (currentUser.role) {
     case 'company_admin':
-      // 分公司管理员只能看到自己分公司下的数据
-      const companyStationIds = allStations.map(station => station.id);
-      
-      switch (userType) {
-        case 'collector':
-          const companyGroups = allGroups.map(group => group.id);
-          // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
-          return companyGroups.length > 0 ? query.in('group_id', companyGroups) : query.in('group_id', []);
+      if (isCompanyLevelAccess) {
+        // 分公司管理员只能看到自己分公司下的数据
+        const companyStationIds = allStations.map(station => station.id);
         
-        case 'monitor':
-        case 'station':
-          // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
-          return companyStationIds.length > 0 ? query.in('station_id', companyStationIds) : query.in('station_id', []);
-        
-        case 'group':
-          // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
-          return companyStationIds.length > 0 ? query.in('station_id', companyStationIds) : query.in('station_id', []);
-        
-        default:
-          return query;
+        switch (userType) {
+          case 'collector':
+            const companyGroups = allGroups.map(group => group.id);
+            // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
+            return companyGroups.length > 0 ? query.in('group_id', companyGroups) : query.in('group_id', []);
+          
+          case 'monitor':
+          case 'station':
+            // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
+            return companyStationIds.length > 0 ? query.in('station_id', companyStationIds) : query.in('station_id', []);
+          
+          case 'group':
+            // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
+            return companyStationIds.length > 0 ? query.in('station_id', companyStationIds) : query.in('station_id', []);
+          
+          default:
+            return query;
+        }
       }
-    
+      break;
+      
     case 'station_admin':
-      // 收费站管理员只能看到自己收费站下的数据
-      switch (userType) {
-        case 'collector':
-          const stationGroups = allGroups.filter(group => group.station_id === currentUser.station_id)
-                                        .map(group => group.id);
-          // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
-          return stationGroups.length > 0 ? query.in('group_id', stationGroups) : query.in('group_id', []);
+    case 'centers_admin':
+      // 收费站管理员和信调中心管理员权限平级
+      // 普通收费站管理员只能看到自己收费站下的数据
+      // 信调中心管理员可以看到自己分公司下的所有数据
+      if (currentUser.role === 'centers_admin') {
+        // 信调中心管理员可以看到自己分公司下的所有数据
+        const companyStationIds = allStations.filter(station => station.company_id === currentUser.company_id)
+                                            .map(station => station.id);
         
-        case 'monitor':
-        case 'station':
-          return query.eq('station_id', currentUser.station_id);
-        
-        case 'group':
-          return query.eq('station_id', currentUser.station_id);
-        
-        default:
-          return query;
+        switch (userType) {
+          case 'collector':
+            const companyGroups = allGroups.filter(group => companyStationIds.includes(group.station_id))
+                                          .map(group => group.id);
+            // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
+            return companyGroups.length > 0 ? query.in('group_id', companyGroups) : query.in('group_id', []);
+          
+          case 'monitor':
+          case 'station':
+            // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
+            return companyStationIds.length > 0 ? query.in('station_id', companyStationIds) : query.in('station_id', []);
+          
+          case 'group':
+            // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
+            return companyStationIds.length > 0 ? query.in('station_id', companyStationIds) : query.in('station_id', []);
+          
+          default:
+            return query;
+        }
+      } else {
+        // 普通收费站管理员只能看到自己收费站下的数据
+        switch (userType) {
+          case 'collector':
+            const stationGroups = allGroups.filter(group => group.station_id === currentUser.station_id)
+                                          .map(group => group.id);
+            // 即使没有权限访问任何数据，也返回一个空的查询，而不是null
+            return stationGroups.length > 0 ? query.in('group_id', stationGroups) : query.in('group_id', []);
+          
+          case 'monitor':
+          case 'station':
+            return query.eq('station_id', currentUser.station_id);
+          
+          case 'group':
+            return query.eq('station_id', currentUser.station_id);
+          
+          default:
+            return query;
+        }
       }
     
     default:

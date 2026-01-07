@@ -2,7 +2,12 @@
 
 async function loadRecords() {
   try {
-    console.log('开始加载登记记录...');
+    console.log('=== 开始加载登记记录 ===');
+    console.log('当前用户:', currentUser);
+    console.log('allCompanies长度:', allCompanies.length);
+    console.log('allStations长度:', allStations.length);
+    console.log('allGroups长度:', allGroups.length);
+    console.log('allCollectors长度:', allCollectors.length);
 
     let query = window.supabase
       .from('toll_records')
@@ -23,12 +28,14 @@ async function loadRecords() {
 
     if (startDate) {
       query = query.gte('created_at', startDate);
+      console.log('应用开始日期筛选:', startDate);
     }
 
     if (endDate) {
       const endDateWithTime = new Date(endDate);
       endDateWithTime.setDate(endDateWithTime.getDate() + 1);
       query = query.lt('created_at', endDateWithTime.toISOString());
+      console.log('应用结束日期筛选:', endDateWithTime.toISOString());
     }
 
     const { data, error } = await query;
@@ -38,11 +45,47 @@ async function loadRecords() {
       throw error;
     }
 
-    console.log(`成功加载记录数量: ${data ? data.length : 0}`);
+    console.log(`成功从Supabase加载记录数量: ${data ? data.length : 0}`);
+    if (data && data.length > 0) {
+      console.log('前3条记录:', data.slice(0, 3));
+    }
 
-    const recordsWithStation = data.map(record => {
+    let recordsWithStation = [];
+    let allImageData = [];
+    
+    // 获取所有记录ID
+    const recordIds = data.map(record => record.id);
+    
+    // 批量获取所有图片信息
+    if (recordIds.length > 0) {
+      const { data: images, error: imagesError } = await window.supabase
+        .from('toll_record_images')
+        .select('*')
+        .in('record_id', recordIds)
+        .order('created_at', { ascending: true });
+      
+      if (imagesError) {
+        console.error('批量获取图片信息失败:', imagesError);
+      } else {
+        allImageData = images || [];
+        console.log(`成功获取图片数量: ${allImageData.length}`);
+      }
+    }
+
+    // 将图片信息关联到记录
+    recordsWithStation = data.map(record => {
       let stationName = '未知';
       let stationId = '';
+      
+      // 查找当前记录的图片
+      const recordImages = allImageData.filter(img => img.record_id === record.id);
+      // 只使用有效图片（过滤掉微信本地路径）
+      const validImages = recordImages.filter(image => 
+        image.image_url && !image.image_url.startsWith('wxfile://')
+      );
+      
+      // 获取第一张有效图片的URL
+      const firstImageUrl = validImages.length > 0 ? validImages[0].image_url : null;
 
       if (allCollectors && allCollectors.length > 0) {
         const parts = record.toll_collector?.split(' ');
@@ -58,12 +101,14 @@ async function loadRecords() {
           collector = allCollectors.find(c => c.name === name);
         }
 
+        // 优先从收费员的班组关联中获取收费站信息
         if (collector?.toll_groups) {
           if (collector.toll_groups.toll_stations) {
             stationName = collector.toll_groups.toll_stations.name;
             stationId = collector.toll_groups.station_id;
-          } else if (allStations && allStations.length > 0 && collector.toll_groups.station_id) {
+          } else if (collector.toll_groups.station_id) {
             const groupStationId = collector.toll_groups.station_id;
+            // 尝试从allStations中查找匹配的收费站
             const station = allStations.find(s => 
               s.id === groupStationId || 
               s.station_id === groupStationId ||
@@ -73,9 +118,18 @@ async function loadRecords() {
             if (station) {
               stationName = station.name;
               stationId = station.id || station.station_id;
-            } else {
-              stationName = `未知站: ${groupStationId.substring(0, 8)}...`;
-              stationId = groupStationId;
+            }
+          }
+        }
+        
+        // 新增：如果仍然没有找到收费站，尝试通过收费员的姓名直接匹配
+        if (stationName === '未知' && collector?.name) {
+          // 尝试从所有收费站记录中查找匹配
+          for (const station of allStations) {
+            if (record.toll_collector?.includes(station.name)) {
+              stationName = station.name;
+              stationId = station.id || station.station_id;
+              break;
             }
           }
         }
@@ -84,32 +138,52 @@ async function loadRecords() {
       return {
         ...record,
         station_name: stationName,
-        station_id: stationId
+        station_id: stationId,
+        image_url: firstImageUrl // 添加第一张有效图片URL
       };
     });
+
+    console.log(`处理后记录数量: ${recordsWithStation.length}`);
+    if (recordsWithStation.length > 0) {
+      console.log('处理后前3条记录:', recordsWithStation.slice(0, 3));
+    }
 
     let filteredByRole = recordsWithStation;
 
     if (currentUser) {
-      if (currentUser.role === 'company_admin') {
+      console.log('开始应用角色过滤...');
+      console.log('用户角色:', currentUser.role);
+      
+      // 动态判断权限：
+      // - 分公司管理员和信调中心管理员可以看到自己分公司的所有记录
+      // - 普通收费站管理员只能看到自己所属收费站的记录
+      // - 超级管理员可以看到所有记录
+      
+      if (currentUser.role === 'company_admin' || currentUser.role === 'centers_admin') {
+        // 分公司管理员和信调中心管理员可以看到自己分公司的所有记录
+        // 找到该分公司下的所有收费站ID
         const companyStationIds = allStations
           .filter(station => station.company_id === currentUser.company_id)
           .map(station => station.id);
-
-        filteredByRole = recordsWithStation.filter(record => {
-          return !record.station_id || companyStationIds.includes(record.station_id);
-        });
-      } else if (currentUser.role === 'station_admin') {
-        filteredByRole = recordsWithStation.filter(record => {
-          return !record.station_id || record.station_id === currentUser.station_id;
-        });
+        
+        filteredByRole = recordsWithStation.filter(record => 
+          companyStationIds.includes(record.station_id)
+        );
+        console.log('分公司管理员/信调中心管理员，过滤后记录数量:', filteredByRole.length);
+      } else if (currentUser.role === 'station_admin' && currentUser.station_id) {
+        // 普通收费站管理员只能看到自己所属收费站的记录
+        filteredByRole = recordsWithStation.filter(record => 
+          record.station_id && record.station_id === currentUser.station_id
+        );
+        console.log('普通收费站管理员，过滤后记录数量:', filteredByRole.length);
       }
     }
 
     allRecords = filteredByRole || [];
     filteredRecords = [...allRecords];
 
-    console.log(`记录数据处理完成，共 ${allRecords.length} 条记录`);
+    console.log(`最终记录数量: ${allRecords.length}`);
+    console.log('=== 登记记录加载完成 ===');
   } catch (error) {
     console.error('加载记录失败:', error);
     showAlert(`加载记录失败: ${error.message || '未知错误'}`, 'error');
@@ -436,7 +510,8 @@ function exportToExcel() {
       '监控员': record.monitor || '',
       '收费站': record.station_name || '',
       '金额': record.amount || 0,
-      '登记时间': safeFormatDateTime(record.created_at)
+      '登记时间': safeFormatDateTime(record.created_at),
+      '图片链接': record.image_url || ''
     }));
     
     // 检查data数组是否为空
@@ -447,6 +522,28 @@ function exportToExcel() {
     
     // 创建工作表
     const ws = XLSX.utils.json_to_sheet(data);
+    
+    // 处理图片链接，将其转换为可直接点击的链接
+    const imageLinkColumnIndex = 11; // 图片链接在第12列，索引从0开始
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    
+    // 遍历每一行，设置图片链接为可点击的超链接
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) { // 从第2行开始（跳过表头）
+      const cellAddress = { c: imageLinkColumnIndex, r: R };
+      const cellRef = XLSX.utils.encode_cell(cellAddress);
+      
+      if (ws[cellRef] && ws[cellRef].v) {
+        // 获取图片URL
+        const imageUrl = ws[cellRef].v;
+        
+        // 设置为超链接
+        ws[cellRef] = {
+          t: 's', // 字符串类型
+          v: imageUrl, // 显示值
+          l: { Target: imageUrl, Tooltip: '点击查看图片' } // 超链接配置
+        };
+      }
+    }
     
     // 只有当ws['!ref']存在时才进行样式设置
     if (ws['!ref']) {
@@ -568,5 +665,13 @@ function initRecordsFilters() {
     if (recordStationFilter) {
         updateRecordStationOptions();
         recordStationFilter.addEventListener('change', filterAndRenderRecords);
+    }
+
+    // 信调中心管理员登录时，设置分公司筛选器的默认值为当前用户的分公司
+    if (currentUser && currentUser.role === 'centers_admin') {
+        if (recordCompanyFilter) {
+            recordCompanyFilter.value = currentUser.company_id;
+            recordCompanyFilter.disabled = true; // 信调中心管理员不能切换分公司
+        }
     }
 }

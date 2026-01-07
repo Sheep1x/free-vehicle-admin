@@ -80,7 +80,7 @@ function renderCollectors() {
 
   // 定义操作按钮
   const actions = [];
-  if (currentUser?.role === 'super_admin' || currentUser?.role === 'company_admin' || currentUser?.role === 'station_admin') {
+  if (currentUser?.role === 'super_admin' || currentUser?.role === 'company_admin' || currentUser?.role === 'station_admin' || currentUser?.role === 'centers_admin') {
     actions.push(
       { label: '编辑', onClick: 'editCollector', class: 'btn btn-primary btn-sm' },
       { label: '删除', onClick: 'deleteCollector', class: 'btn btn-danger btn-sm' }
