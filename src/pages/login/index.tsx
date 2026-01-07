@@ -82,12 +82,12 @@ const Login: React.FC = () => {
                 autoComplete="current-password"
                 type={showPassword ? 'text' : 'password'}
               />
-              <Button className={`password-toggle ${showPassword ? 'unlock' : 'lock'}`} type="text" onClick={() => setShowPassword(!showPassword)}>
+              <View className={`password-toggle ${showPassword ? 'unlock' : 'lock'}`} onClick={() => setShowPassword(!showPassword)}>
                 <View className="lock-icon">
                   <View className="lock-body"></View>
                   <View className="lock-shackle"></View>
                 </View>
-              </Button>
+              </View>
             </View>
           </View>
 
@@ -99,20 +99,13 @@ const Login: React.FC = () => {
           )}
 
           {/* 登录按钮 */}
-          <Button
-            className="login-button"
-            type="primary"
-            loading={isLoading}
-            onClick={handleLogin}
-            disabled={isLoading}>
-            登录
-          </Button>
-
-          {/* 登录提示 */}
-          <View className="login-tips">
-            <Text className="tip-text">提示：请使用管理员账号登录</Text>
+          <View
+            className={`login-button ${isLoading ? 'loading' : ''}`}
+            onClick={isLoading ? undefined : handleLogin}>
+            {isLoading ? '' : '登录'}
           </View>
-        </View>
+
+          </View>
       </View>
     </AuthGuard>
   )
