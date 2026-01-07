@@ -2,7 +2,12 @@
 
 async function loadRecords() {
   try {
-    console.log('开始加载登记记录...');
+    console.log('=== 开始加载登记记录 ===');
+    console.log('当前用户:', currentUser);
+    console.log('allCompanies长度:', allCompanies.length);
+    console.log('allStations长度:', allStations.length);
+    console.log('allGroups长度:', allGroups.length);
+    console.log('allCollectors长度:', allCollectors.length);
 
     let query = window.supabase
       .from('toll_records')
@@ -23,12 +28,14 @@ async function loadRecords() {
 
     if (startDate) {
       query = query.gte('created_at', startDate);
+      console.log('应用开始日期筛选:', startDate);
     }
 
     if (endDate) {
       const endDateWithTime = new Date(endDate);
       endDateWithTime.setDate(endDateWithTime.getDate() + 1);
       query = query.lt('created_at', endDateWithTime.toISOString());
+      console.log('应用结束日期筛选:', endDateWithTime.toISOString());
     }
 
     const { data, error } = await query;
@@ -38,7 +45,10 @@ async function loadRecords() {
       throw error;
     }
 
-    console.log(`成功加载记录数量: ${data ? data.length : 0}`);
+    console.log(`成功从Supabase加载记录数量: ${data ? data.length : 0}`);
+    if (data && data.length > 0) {
+      console.log('前3条记录:', data.slice(0, 3));
+    }
 
     const recordsWithStation = data.map(record => {
       let stationName = '未知';
@@ -58,12 +68,14 @@ async function loadRecords() {
           collector = allCollectors.find(c => c.name === name);
         }
 
+        // 优先从收费员的班组关联中获取收费站信息
         if (collector?.toll_groups) {
           if (collector.toll_groups.toll_stations) {
             stationName = collector.toll_groups.toll_stations.name;
             stationId = collector.toll_groups.station_id;
-          } else if (allStations && allStations.length > 0 && collector.toll_groups.station_id) {
+          } else if (collector.toll_groups.station_id) {
             const groupStationId = collector.toll_groups.station_id;
+            // 尝试从allStations中查找匹配的收费站
             const station = allStations.find(s => 
               s.id === groupStationId || 
               s.station_id === groupStationId ||
@@ -73,9 +85,18 @@ async function loadRecords() {
             if (station) {
               stationName = station.name;
               stationId = station.id || station.station_id;
-            } else {
-              stationName = `未知站: ${groupStationId.substring(0, 8)}...`;
-              stationId = groupStationId;
+            }
+          }
+        }
+        
+        // 新增：如果仍然没有找到收费站，尝试通过收费员的姓名直接匹配
+        if (stationName === '未知' && collector?.name) {
+          // 尝试从所有收费站记录中查找匹配
+          for (const station of allStations) {
+            if (record.toll_collector?.includes(station.name)) {
+              stationName = station.name;
+              stationId = station.id || station.station_id;
+              break;
             }
           }
         }
@@ -88,28 +109,42 @@ async function loadRecords() {
       };
     });
 
+    console.log(`处理后记录数量: ${recordsWithStation.length}`);
+    if (recordsWithStation.length > 0) {
+      console.log('处理后前3条记录:', recordsWithStation.slice(0, 3));
+    }
+
     let filteredByRole = recordsWithStation;
 
     if (currentUser) {
-      if (currentUser.role === 'company_admin') {
-        const companyStationIds = allStations
-          .filter(station => station.company_id === currentUser.company_id)
-          .map(station => station.id);
-
-        filteredByRole = recordsWithStation.filter(record => {
-          return !record.station_id || companyStationIds.includes(record.station_id);
-        });
-      } else if (currentUser.role === 'station_admin') {
-        filteredByRole = recordsWithStation.filter(record => {
-          return !record.station_id || record.station_id === currentUser.station_id;
-        });
+      console.log('开始应用角色过滤...');
+      console.log('用户角色:', currentUser.role);
+      
+      // 动态判断权限：
+      // - 分公司管理员可以看到所有记录
+      // - 收费站管理员如果关联了分公司，可以看到该分公司的所有记录
+      // - 普通收费站管理员只能看到自己所属收费站的记录
+      const canSeeAllCompanyRecords = currentUser.role === 'company_admin' || 
+                                      (currentUser.role === 'station_admin' && currentUser.company_id);
+      
+      if (canSeeAllCompanyRecords) {
+        // 分公司管理员或关联了分公司的收费站管理员可以看到本分公司的所有记录
+        filteredByRole = recordsWithStation;
+        console.log('有权限查看分公司所有记录');
+      } else if (currentUser.role === 'station_admin' && currentUser.station_id) {
+        // 普通收费站管理员只能看到自己所属收费站的记录
+        filteredByRole = recordsWithStation.filter(record => 
+          record.station_id && record.station_id === currentUser.station_id
+        );
+        console.log('普通收费站管理员，过滤后记录数量:', filteredByRole.length);
       }
     }
 
     allRecords = filteredByRole || [];
     filteredRecords = [...allRecords];
 
-    console.log(`记录数据处理完成，共 ${allRecords.length} 条记录`);
+    console.log(`最终记录数量: ${allRecords.length}`);
+    console.log('=== 登记记录加载完成 ===');
   } catch (error) {
     console.error('加载记录失败:', error);
     showAlert(`加载记录失败: ${error.message || '未知错误'}`, 'error');
@@ -568,5 +603,13 @@ function initRecordsFilters() {
     if (recordStationFilter) {
         updateRecordStationOptions();
         recordStationFilter.addEventListener('change', filterAndRenderRecords);
+    }
+
+    // 信调中心管理员登录时，设置分公司筛选器的默认值为当前用户的分公司
+    if (currentUser && currentUser.role === 'station_admin' && currentUser.is_centers) {
+        if (recordCompanyFilter) {
+            recordCompanyFilter.value = currentUser.company_id;
+            recordCompanyFilter.disabled = true; // 信调中心管理员不能切换分公司
+        }
     }
 }

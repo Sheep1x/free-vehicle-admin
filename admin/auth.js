@@ -130,6 +130,12 @@ async function showMainApp() {
     setUserPermissions(currentUser.role);
   }
 
+  // 清除所有数据缓存，确保使用最新数据
+  if (typeof clearCache === 'function') {
+    clearCache();
+    console.log('所有数据缓存已清除');
+  }
+
   // 加载初始数据
   try {
     if (typeof loadInitialData === 'function') {
@@ -156,6 +162,12 @@ async function showMainApp() {
 
 // 根据角色标识符获取角色名称
 function getRoleName(role) {
+  // 动态判断是否为信调中心管理员
+  const isCentersAdmin = currentUser && currentUser.role === 'station_admin' && currentUser.company_id;
+  if (isCentersAdmin) {
+    return '信调中心管理员';
+  }
+  
   const roleMap = {
     super_admin: '超级管理员',
     company_admin: '分公司管理员',
@@ -172,18 +184,33 @@ function setUserPermissions(role) {
   allMenuItems.forEach(item => {
     item.style.display = 'flex';
   });
+  
+  // 动态判断是否为信调中心管理员
+  const isCentersAdmin = currentUser && currentUser.role === 'station_admin' && currentUser.company_id;
 
   if (role === 'company_admin') {
     // 分公司管理员不能管理分公司，但可以管理用户
     document.querySelector('.menu-item[onclick*="companies"]').style.display = 'none';
     // document.querySelector('.menu-item[onclick*="users"]').style.display = 'none'; // 允许分公司管理员查看用户管理页面
-  } else if (role === 'station_admin') {
-    // 收费站管理员可以看到记录和收费员管理
+  } else if (isCentersAdmin) {
+    // 信调中心管理员：显示监控员管理，隐藏收费员管理
     document.querySelector('.menu-item[onclick*="companies"]').style.display = 'none';
     document.querySelector('.menu-item[onclick*="stations"]').style.display = 'none';
     document.querySelector('.menu-item[onclick*="groups"]').style.display = 'none';
-    // 显示收费员管理菜单
-    // document.querySelector('.menu-item[onclick*="collectors"]').style.display = 'none';
+    // 隐藏收费员管理
+    document.querySelector('.menu-item[onclick*="collectors"]').style.display = 'none';
+    // 显示监控员管理
+    document.querySelector('.menu-item[onclick*="monitors"]').style.display = 'flex';
+    document.querySelector('.menu-item[onclick*="shifts"]').style.display = 'none';
+    document.querySelector('.menu-item[onclick*="users"]').style.display = 'none';
+  } else if (role === 'station_admin') {
+    // 普通收费站管理员：显示收费员管理，隐藏监控员管理
+    document.querySelector('.menu-item[onclick*="companies"]').style.display = 'none';
+    document.querySelector('.menu-item[onclick*="stations"]').style.display = 'none';
+    document.querySelector('.menu-item[onclick*="groups"]').style.display = 'none';
+    // 显示收费员管理
+    document.querySelector('.menu-item[onclick*="collectors"]').style.display = 'flex';
+    // 隐藏监控员管理
     document.querySelector('.menu-item[onclick*="monitors"]').style.display = 'none';
     document.querySelector('.menu-item[onclick*="shifts"]').style.display = 'none';
     document.querySelector('.menu-item[onclick*="users"]').style.display = 'none';
