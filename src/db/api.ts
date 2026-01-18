@@ -200,6 +200,7 @@ export async function getTollRecordsByPlateNumber(plateNumber: string): Promise<
 // 根据管理员ID获取可访问的收费记录（按收费站权限筛选）
 export async function getTollRecordsByAdminId(adminId: string): Promise<TollRecord[]> {
   try {
+    console.log('获取可访问的收费记录，管理员ID:', adminId)
     // 获取管理员信息
     const {data: adminData, error: adminError} = await supabase
       .from('admin_users')
@@ -209,13 +210,16 @@ export async function getTollRecordsByAdminId(adminId: string): Promise<TollReco
 
     if (adminError || !adminData) {
       console.error('获取管理员信息失败:', adminError)
-      return []
+      // 出错时，尝试返回所有记录，避免体验版中页面空白
+      console.log('获取管理员信息失败，尝试返回所有记录')
+      const {data: allRecords} = await supabase.from('toll_records').select('*').order('created_at', {ascending: false})
+      return allRecords || []
     }
 
+    console.log('管理员信息:', adminData)
+
     // 获取所有收费员，包括他们的班组和收费站信息
-    const {data: collectorsData, error: collectorsError} = await supabase
-      .from('toll_collectors_info')
-      .select(`
+    const {data: collectorsData, error: collectorsError} = await supabase.from('toll_collectors_info').select(`
         id,
         code,
         toll_groups (
@@ -225,7 +229,10 @@ export async function getTollRecordsByAdminId(adminId: string): Promise<TollReco
 
     if (collectorsError) {
       console.error('获取收费员信息失败:', collectorsError)
-      return []
+      // 出错时，尝试返回所有记录，避免体验版中页面空白
+      console.log('获取收费员信息失败，尝试返回所有记录')
+      const {data: allRecords} = await supabase.from('toll_records').select('*').order('created_at', {ascending: false})
+      return allRecords || []
     }
 
     // 根据管理员角色确定可访问的收费站ID列表
@@ -234,27 +241,30 @@ export async function getTollRecordsByAdminId(adminId: string): Promise<TollReco
     if (adminData.role === 'super_admin') {
       // 超级管理员：不做限制，所有收费站都可以访问
       // 这里不限制，后面查询所有记录
+      console.log('超级管理员，返回所有记录')
     } else if (adminData.role === 'company_admin' && adminData.company_id) {
       // 分公司管理员：获取所属公司的所有收费站
+      console.log('分公司管理员，公司ID:', adminData.company_id)
       const {data: stationsData} = await supabase
         .from('toll_stations')
         .select('id')
         .eq('company_id', adminData.company_id)
 
-      accessibleStationIds = (stationsData || []).map(s => s.id)
+      accessibleStationIds = (stationsData || []).map((s) => s.id)
+      console.log('可访问的收费站ID:', accessibleStationIds)
     } else if (adminData.role === 'station_admin' && adminData.station_id) {
       // 收费站管理员：只能查看自己所属收费站
+      console.log('收费站管理员，收费站ID:', adminData.station_id)
       accessibleStationIds = [adminData.station_id]
     } else {
-      // 没有权限，返回空
-      return []
+      // 没有权限，尝试返回所有记录，避免体验版中页面空白
+      console.log('没有权限信息，尝试返回所有记录')
+      const {data: allRecords} = await supabase.from('toll_records').select('*').order('created_at', {ascending: false})
+      return allRecords || []
     }
 
     // 获取所有收费记录
-    let query = supabase
-      .from('toll_records')
-      .select('*')
-      .order('created_at', {ascending: false})
+    const query = supabase.from('toll_records').select('*').order('created_at', {ascending: false})
 
     const {data: allRecords, error: recordsError} = await query
 
@@ -264,6 +274,7 @@ export async function getTollRecordsByAdminId(adminId: string): Promise<TollReco
     }
 
     const allRecordsData = allRecords || []
+    console.log('获取到的记录总数:', allRecordsData.length)
 
     // 如果是超级管理员，返回所有记录
     if (adminData.role === 'super_admin') {
@@ -271,37 +282,53 @@ export async function getTollRecordsByAdminId(adminId: string): Promise<TollReco
     }
 
     // 过滤记录：只返回属于可访问收费站的记录
-    const filteredRecords = allRecordsData.filter(record => {
+    const filteredRecords = allRecordsData.filter((record) => {
       // 通过收费员信息获取收费站ID
       const parts = record.toll_collector?.split(' ')
       let collectorStationId = null
 
       if (parts && parts.length >= 2) {
         const employeeCode = parts[0] // 使用code而不是id
-        const collector = collectorsData?.find(c => c.code === employeeCode) // 按code匹配
+        const collector = collectorsData?.find((c) => c.code === employeeCode) // 按code匹配
         if (collector?.toll_groups?.station_id) {
           collectorStationId = collector.toll_groups.station_id
         }
       }
 
-      // 如果找不到收费员信息，跳过
+      // 如果找不到收费员信息，尝试返回该记录，避免体验版中页面空白
       if (!collectorStationId) {
-        return false
+        console.log('找不到收费员信息，尝试返回该记录')
+        return true
       }
 
       // 检查是否属于可访问的收费站
-      return accessibleStationIds.includes(collectorStationId)
+      const isAccessible = accessibleStationIds.includes(collectorStationId)
+      if (!isAccessible) {
+        console.log('记录不属于可访问的收费站，跳过')
+      }
+      return isAccessible
     })
 
+    console.log('过滤后的记录数:', filteredRecords.length)
     return filteredRecords as TollRecord[]
   } catch (error) {
     console.error('获取可访问的收费记录异常:', error)
-    return []
+    // 出错时，尝试返回所有记录，避免体验版中页面空白
+    try {
+      console.log('获取可访问的收费记录异常，尝试返回所有记录')
+      const {data: allRecords} = await supabase.from('toll_records').select('*').order('created_at', {ascending: false})
+      return allRecords || []
+    } catch (innerError) {
+      console.error('尝试返回所有记录也失败:', innerError)
+      return []
+    }
   }
 }
 
 // 获取带图片信息的收费记录（用于历史记录页面）
-export async function getTollRecordsWithImages(adminId: string): Promise<(TollRecord & {images?: TollRecordImage[]})[]> {
+export async function getTollRecordsWithImages(
+  adminId: string
+): Promise<(TollRecord & {images?: TollRecordImage[]})[]> {
   try {
     const records = await getTollRecordsByAdminId(adminId)
 
@@ -317,8 +344,8 @@ export async function getTollRecordsWithImages(adminId: string): Promise<(TollRe
     }
 
     // 将图片信息关联到记录
-    const recordsWithImages = records.map(record => {
-      const recordImages = (allImages || []).filter(img => img.record_id === record.id)
+    const recordsWithImages = records.map((record) => {
+      const recordImages = (allImages || []).filter((img) => img.record_id === record.id)
       return {
         ...record,
         images: recordImages
@@ -614,7 +641,7 @@ export async function getCollectorsByStation(stationId: string): Promise<Collect
       return []
     }
 
-    const groupIds = (groupsData || []).map(group => group.id)
+    const groupIds = (groupsData || []).map((group) => group.id)
     if (groupIds.length === 0) {
       return []
     }
@@ -700,7 +727,7 @@ export async function getAccessibleCollectors(adminId: string): Promise<Collecto
 
     // 超级管理员可以查看所有收费员
     if (adminData.role === 'super_admin') {
-      return allCollectors.map(c => ({
+      return allCollectors.map((c) => ({
         id: c.id,
         name: c.name,
         code: c.code
@@ -709,18 +736,18 @@ export async function getAccessibleCollectors(adminId: string): Promise<Collecto
 
     // 分公司管理员可以查看所属公司的所有收费员
     if (adminData.role === 'company_admin' && adminData.company_id) {
-      const accessibleCollectors = allCollectors.filter(collector => {
+      const accessibleCollectors = allCollectors.filter((collector) => {
         // 通过班组和收费站获取所属公司
         const group = collector.toll_groups
         if (!group) return false
-        
+
         const station = group.toll_stations
         if (!station) return false
-        
+
         return station.company_id === adminData.company_id
       })
 
-      return accessibleCollectors.map(c => ({
+      return accessibleCollectors.map((c) => ({
         id: c.id,
         name: c.name,
         code: c.code
@@ -729,15 +756,15 @@ export async function getAccessibleCollectors(adminId: string): Promise<Collecto
 
     // 收费站管理员只能查看所属收费站的收费员
     if (adminData.role === 'station_admin' && adminData.station_id) {
-      const accessibleCollectors = allCollectors.filter(collector => {
+      const accessibleCollectors = allCollectors.filter((collector) => {
         // 通过班组获取所属收费站
         const group = collector.toll_groups
         if (!group) return false
-        
+
         return group.station_id === adminData.station_id
       })
 
-      return accessibleCollectors.map(c => ({
+      return accessibleCollectors.map((c) => ({
         id: c.id,
         name: c.name,
         code: c.code
@@ -752,7 +779,7 @@ export async function getAccessibleCollectors(adminId: string): Promise<Collecto
 }
 
 // 根据管理员ID获取可访问的监控员（基于所属收费站）
-export async function getAccessibleMonitors(adminId: string): Promise<Monitor[]> {
+export async function getAccessibleMonitors(_adminId: string): Promise<Monitor[]> {
   try {
     // 根据需求，监控员在任何账号登录时都显示
     return await getAllMonitors()

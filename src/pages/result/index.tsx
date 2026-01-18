@@ -2,17 +2,17 @@ import {Button, Image, Input, Picker, Text, View} from '@tarojs/components'
 import Taro, {useRouter} from '@tarojs/taro'
 import type React from 'react'
 import {useCallback, useEffect, useRef, useState} from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import {supabase} from '@/client/supabase'
+import AuthGuard from '@/components/AuthGuard'
 import {
   createTollRecord,
   getAccessibleCollectors,
   getAccessibleMonitors,
   getCurrentShift,
-  getRecordImages,
   getShiftSettings
 } from '@/db/api'
 import {useAuthStore} from '@/store/auth'
+import {loadImageWithCache} from '@/utils/imageCache'
 import {compressImage, imageToBase64} from '@/utils/imageUtils'
 import type {OCRResult} from '@/utils/ocrUtils'
 import {recognizeTollReceipt} from '@/utils/ocrUtils'
@@ -83,6 +83,9 @@ const Result: React.FC = () => {
   // 当前班次
   const [currentShift, setCurrentShift] = useState('')
 
+  // 图片加载状态
+  const [imageSrc, setImageSrc] = useState('')
+
   // 获取当前登录用户
   const {user} = useAuthStore()
 
@@ -143,45 +146,61 @@ const Result: React.FC = () => {
     if (data) {
       try {
         const result = JSON.parse(decodeURIComponent(data))
-        
+
         // 如果有记录ID，从toll_record_images表获取图片
         const loadRecordImages = async () => {
-          if (result.recordId) {
-            try {
+          try {
+            // 优先使用传入的图片URL（从历史记录页面带过来）
+            if (result.imageUrl) {
+              setImageSrc(result.imageUrl)
+              setLocalImageUrl(result.imageUrl)
+              setImageUrl(result.imageUrl)
+              // 只有当图片URL不是本地文件时，才尝试从缓存加载
+              if (!result.imageUrl.startsWith('wxfile://')) {
+                loadImageWithCache(result.imageUrl).then((cachedPath) => {
+                  if (cachedPath !== result.imageUrl) {
+                    setImageSrc(cachedPath)
+                    setImageUrl(cachedPath)
+                  }
+                }).catch(() => {})
+              }
+            } else if (result.recordId) {
+              // 没有传入图片URL，才查询数据库
               const {data: images} = await supabase
                 .from('toll_record_images')
                 .select('*')
                 .eq('record_id', result.recordId)
                 .order('created_at', {ascending: true})
-              
+
               if (images && images.length > 0) {
-                // 优先使用toll_record_images表中的图片
+                setImageSrc(images[0].image_url)
                 setImageUrl(images[0].image_url)
-                // 如果本地没有图片路径，也设置一下（但这只能用于显示，不能用于重新识别）
                 if (!localImageUrl) {
                   setLocalImageUrl(images[0].image_url)
                 }
-              } else if (result.imageUrl) {
-                // 如果没有找到图片，使用传入的图片URL
-                setLocalImageUrl(result.imageUrl)
-                setImageUrl(result.imageUrl)
-              }
-            } catch (error) {
-              console.error('获取记录图片失败:', error)
-              if (result.imageUrl) {
-                setLocalImageUrl(result.imageUrl)
-                setImageUrl(result.imageUrl)
+                // 只有当图片URL不是本地文件时，才尝试从缓存加载
+                if (!images[0].image_url.startsWith('wxfile://')) {
+                  loadImageWithCache(images[0].image_url).then((cachedPath) => {
+                    if (cachedPath !== images[0].image_url) {
+                      setImageSrc(cachedPath)
+                      setImageUrl(cachedPath)
+                    }
+                  }).catch(() => {})
+                }
               }
             }
-          } else if (result.imageUrl) {
-            // 没有记录ID，直接使用传入的图片URL
-            setLocalImageUrl(result.imageUrl)
-            setImageUrl(result.imageUrl)
+          } catch (error) {
+            console.error('获取记录图片失败:', error)
+            if (result.imageUrl) {
+              setImageSrc(result.imageUrl)
+              setLocalImageUrl(result.imageUrl)
+              setImageUrl(result.imageUrl)
+            }
           }
         }
-        
+
         loadRecordImages()
-        
+
         setPlateNumber(result.plateNumber || '')
         setVehicleType(result.vehicleType || '')
         setAxleCount(result.axleCount || '')
@@ -202,7 +221,7 @@ const Result: React.FC = () => {
         // 忽略解析错误
       }
     }
-  }, [router.params, processEntryInfo])
+  }, [router.params, processEntryInfo, localImageUrl])
 
   // 重新识别
   const handleReRecognize = async () => {
@@ -478,9 +497,9 @@ const Result: React.FC = () => {
         </View>
         <View className="px-4 pt-16">
           {/* 图片 */}
-          {imageUrl && (
+          {imageSrc && (
             <View className="bg-card rounded-xl p-4 mb-6 shadow-card">
-              <Image src={imageUrl} mode="aspectFit" className="w-full rounded-lg" style={{height: '200px'}} />
+              <Image src={imageSrc} mode="aspectFit" className="w-full rounded-lg" style={{height: '200px'}} />
             </View>
           )}
 

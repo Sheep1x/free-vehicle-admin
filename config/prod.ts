@@ -1,33 +1,68 @@
 import type {UserConfigExport} from '@tarojs/cli'
 
 export default {
-  mini: {},
-  h5: {
-    /**
-     * WebpackChain 插件配置
-     * @docs https://github.com/neutrinojs/webpack-chain
-     */
-    // webpackChain (chain) {
-    //   /**
-    //    * 如果 h5 端编译后体积过大，可以使用 webpack-bundle-analyzer 插件对打包体积进行分析。
-    //    * @docs https://github.com/webpack-contrib/webpack-bundle-analyzer
-    //    */
-    //   chain.plugin('analyzer')
-    //     .use(require('webpack-bundle-analyzer').BundleAnalyzerPlugin, [])
-    //   /**
-    //    * 如果 h5 端首屏加载时间过长，可以使用 prerender-spa-plugin 插件预加载首页。
-    //    * @docs https://github.com/chrisvfritz/prerender-spa-plugin
-    //    */
-    //   const path = require('path')
-    //   const Prerender = require('prerender-spa-plugin')
-    //   const staticDir = path.join(__dirname, '..', 'dist')
-    //   chain
-    //     .plugin('prerender')
-    //     .use(new Prerender({
-    //       staticDir,
-    //       routes: [ '/pages/index/index' ],
-    //       postProcess: (context) => ({ ...context, outputPath: path.join(staticDir, 'index.html') })
-    //     }))
-    // }
+  mini: {
+    webpackChain: (chain) => {
+      // 代码分割
+      chain.optimization.splitChunks({
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendor',
+            chunks: 'initial',
+            priority: 10
+          },
+          common: {
+            name: 'common',
+            minChunks: 2,
+            chunks: 'initial',
+            priority: 5,
+            reuseExistingChunk: true
+          }
+        }
+      })
+      
+      // 压缩配置
+      chain.optimization.minimize(true)
+      chain.optimization.minimizer('terser').use(require('terser-webpack-plugin'), [{
+        terserOptions: {
+          compress: {
+            drop_console: true,
+            drop_debugger: true
+          },
+          output: {
+            comments: false
+          }
+        }
+      }])
+    }
+  },
+  compiler: {
+    type: 'vite',
+    viteConfig: {
+      build: {
+        minify: 'terser',
+        terserOptions: {
+          compress: {
+            drop_console: true,
+            drop_debugger: true
+          },
+          output: {
+            comments: false
+          }
+        },
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              taro: ['@tarojs/taro', '@tarojs/runtime'],
+              react: ['react', 'react-dom'],
+              supabase: ['supabase-wechat-js'],
+              zustand: ['zustand']
+            }
+          }
+        }
+      }
+    }
   }
 } satisfies UserConfigExport<'vite'>

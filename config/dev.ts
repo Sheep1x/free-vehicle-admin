@@ -5,7 +5,6 @@ export default {
   mini: {
     debugReact: true
   },
-  h5: {},
   compiler: {
     type: 'vite',
     vitePlugins: [

@@ -175,43 +175,6 @@ export default defineConfig<'vite'>(async (merge) => {
           }
         }
       }
-    },
-    h5: {
-      publicPath,
-      staticDirectory: 'static',
-
-      sassLoaderOption: {
-        additionalData: `@import "@/styles/overrides.scss";`
-      },
-
-      miniCssExtractPluginOption: {
-        ignoreOrder: true,
-        filename: 'css/[name].[hash].css',
-        chunkFilename: 'css/[name].[chunkhash].css'
-      },
-      postcss: {
-        pxtransform: {
-          enable: true,
-          config: {
-            baseFontSize: 12,
-            minRootSize: 12
-          }
-        },
-        autoprefixer: {
-          enable: true,
-          config: {}
-        },
-        cssModules: {
-          enable: false, // 默认为 false，如需使用 css modules 功能，则设为 true
-          config: {
-            namingPattern: 'module', // 转换模式，取值为 global/module
-            generateScopedName: '[name]__[local]___[hash:base64:5]'
-          }
-        }
-      },
-      devServer: {
-        open: false
-      }
     }
   }
 

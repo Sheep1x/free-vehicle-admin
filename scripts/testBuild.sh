@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LINT_MODE=true npx taro build --type h5 > build-output.txt 2>&1
+LINT_MODE=true npx taro build --type weapp > build-output.txt 2>&1
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then

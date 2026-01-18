@@ -1,12 +1,18 @@
 import {Image, Input, ScrollView, Text, View} from '@tarojs/components'
 import Taro, {useDidShow} from '@tarojs/taro'
 import type React from 'react'
-import {useCallback, useState} from 'react'
-import AuthGuard from '@/components/AuthGuard'
+import {useCallback, useEffect, useState} from 'react'
 import {supabase} from '@/client/supabase'
-import {deleteTollRecords, getTollRecordsByAdminId, getTollRecordsByPlateNumber, getTollRecordsWithImages} from '@/db/api'
-import {getCurrentUser} from '@/store/auth'
+import AuthGuard from '@/components/AuthGuard'
+import {
+  deleteTollRecords,
+  getTollRecordsByAdminId,
+  getTollRecordsByPlateNumber,
+  getTollRecordsWithImages
+} from '@/db/api'
 import type {TollRecord, TollRecordImage} from '@/db/types'
+import {getCurrentUser} from '@/store/auth'
+import {loadImageWithCache} from '@/utils/imageCache'
 
 interface TollRecordWithImages extends TollRecord {
   images?: TollRecordImage[]
@@ -21,44 +27,71 @@ const History: React.FC = () => {
   // 加载记录
   const loadRecords = useCallback(async () => {
     try {
+      console.log('开始加载记录...')
       const currentUser = getCurrentUser()
-      
+
+      console.log('当前用户:', currentUser)
       if (!currentUser) {
+        console.log('未登录，跳转到登录页')
         Taro.showToast({
           title: '请先登录',
           icon: 'none'
+        })
+        Taro.reLaunch({
+          url: '/pages/login/index'
         })
         return
       }
 
       let data: TollRecordWithImages[]
       if (searchText.trim()) {
+        console.log('搜索模式，关键词:', searchText)
         // 搜索时也需要按权限筛选
         const allSearchResults = await getTollRecordsByPlateNumber(searchText.trim())
+        console.log('搜索结果:', allSearchResults.length, '条')
+        
         // 获取可访问的记录
         const accessibleRecords = await getTollRecordsByAdminId(currentUser.id)
+        console.log('可访问记录:', accessibleRecords.length, '条')
+        
         // 获取所有图片信息
         const {data: allImages} = await supabase.from('toll_record_images').select('*')
-        
+        console.log('图片信息:', (allImages || []).length, '条')
+
         // 取交集，只保留既匹配搜索条件又有访问权限的记录
-        const accessibleIds = new Set(accessibleRecords.map(r => r.id))
-        const filteredRecords = allSearchResults.filter(r => accessibleIds.has(r.id))
-        
+        const accessibleIds = new Set(accessibleRecords.map((r) => r.id))
+        const filteredRecords = allSearchResults.filter((r) => accessibleIds.has(r.id))
+        console.log('过滤后记录:', filteredRecords.length, '条')
+
         // 关联图片信息
-        data = filteredRecords.map(record => ({
+        data = filteredRecords.map((record) => ({
           ...record,
-          images: (allImages || []).filter(img => img.record_id === record.id)
+          images: (allImages || []).filter((img) => img.record_id === record.id)
         }))
       } else {
+        console.log('正常模式，获取所有记录')
         data = await getTollRecordsWithImages(currentUser.id)
+        console.log('获取记录:', data.length, '条')
       }
+      
       setRecords(data)
+      console.log('记录设置完成')
+
+      // 预加载图片到缓存（异步，不阻塞UI）
+      data.forEach((record) => {
+        const displayImageUrl = record.images && record.images.length > 0 ? record.images[0].image_url : record.image_url
+        if (displayImageUrl && !displayImageUrl.startsWith('wxfile://')) {
+          loadImageWithCache(displayImageUrl).catch(() => {})
+        }
+      })
     } catch (error) {
       console.error('加载记录失败:', error)
       Taro.showToast({
         title: '加载失败',
         icon: 'none'
       })
+      // 即使出错，也确保records不为undefined
+      setRecords([])
     }
   }, [searchText])
 
@@ -135,9 +168,12 @@ const History: React.FC = () => {
     }
 
     // 优先使用toll_record_images表中的图片
-    const displayImageUrl = record.images && record.images.length > 0 
-      ? record.images[0].image_url 
-      : record.image_url
+    const displayImageUrl = record.images && record.images.length > 0 ? record.images[0].image_url : record.image_url
+
+    // 预加载图片到缓存（异步，不阻塞跳转）
+    if (displayImageUrl) {
+      loadImageWithCache(displayImageUrl).catch(() => {})
+    }
 
     // 跳转到结果页面查看详情
     Taro.navigateTo({
@@ -304,19 +340,24 @@ const History: React.FC = () => {
                         )}
 
                         {/* 图片 - 使用toll_record_images表中的图片 */}
-                        {!isEditMode && (
-                          <>
-                            {record.images && record.images.length > 0 ? (
-                              <View className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                                <Image src={record.images[0].image_url} mode="aspectFill" className="w-full h-full" />
-                              </View>
-                            ) : record.image_url ? (
-                              <View className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                                <Image src={record.image_url} mode="aspectFill" className="w-full h-full" />
-                              </View>
-                            ) : null}
-                          </>
-                        )}
+                        {!isEditMode &&
+                          (record.images && record.images.length > 0 ? (
+                            <View className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                              <Image
+                                src={record.images[0].image_url}
+                                mode="aspectFill"
+                                className="w-full h-full"
+                              />
+                            </View>
+                          ) : record.image_url ? (
+                            <View className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                              <Image
+                                src={record.image_url}
+                                mode="aspectFill"
+                                className="w-full h-full"
+                              />
+                            </View>
+                          ) : null)}
 
                         {/* 记录信息 */}
                         <View className="flex-1">
