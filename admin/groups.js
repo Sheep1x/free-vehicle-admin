@@ -10,7 +10,28 @@ async function loadGroups() {
     )
   `;
   
-  await loadCommonData('toll_groups', selectFields, 'group', currentUser, allStations, allGroups, allGroups);
+  // 检查 loadCommonData 函数是否存在
+  if (typeof loadCommonData === 'function') {
+    await loadCommonData('toll_groups', selectFields, 'group', currentUser, allStations, allGroups, allGroups);
+  } else {
+    console.error('loadCommonData 函数未定义，无法加载班组数据');
+    // 尝试直接从数据库加载数据
+    try {
+      const { data, error } = await window.supabase
+        .from('toll_groups')
+        .select(selectFields)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('直接加载班组数据失败:', error);
+      } else {
+        allGroups = data || [];
+        console.log('直接加载班组数据成功，共', allGroups.length, '条记录');
+      }
+    } catch (error) {
+      console.error('直接加载班组数据异常:', error);
+    }
+  }
 }
 
 function renderGroups() {

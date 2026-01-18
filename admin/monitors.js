@@ -13,7 +13,28 @@ async function loadMonitors() {
     )
   `;
   
-  await loadCommonData('monitors_info', selectFields, 'monitor', currentUser, allStations, allGroups, allMonitors);
+  // 检查 loadCommonData 函数是否存在
+  if (typeof loadCommonData === 'function') {
+    await loadCommonData('monitors_info', selectFields, 'monitor', currentUser, allStations, allGroups, allMonitors);
+  } else {
+    console.error('loadCommonData 函数未定义，无法加载监控员数据');
+    // 尝试直接从数据库加载数据
+    try {
+      const { data, error } = await window.supabase
+        .from('monitors_info')
+        .select(selectFields)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('直接加载监控员数据失败:', error);
+      } else {
+        allMonitors = data || [];
+        console.log('直接加载监控员数据成功，共', allMonitors.length, '条记录');
+      }
+    } catch (error) {
+      console.error('直接加载监控员数据异常:', error);
+    }
+  }
 }
 
 function renderMonitors() {

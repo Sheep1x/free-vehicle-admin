@@ -207,6 +207,49 @@ function hideImageModal() {
   }
 }
 
+// 数据缓存机制
+const utilsDataCache = new Map();
+const utilsCacheExpiry = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 缓存有效期：5分钟
+
+// 获取缓存数据
+function getCachedData(key) {
+  if (!utilsDataCache.has(key)) {
+    return null;
+  }
+  
+  const expiry = utilsCacheExpiry.get(key);
+  if (expiry && Date.now() > expiry) {
+    // 缓存已过期，清除缓存
+    utilsDataCache.delete(key);
+    utilsCacheExpiry.delete(key);
+    return null;
+  }
+  
+  return utilsDataCache.get(key);
+}
+
+// 更新缓存数据
+function updateCache(key, data) {
+  utilsDataCache.set(key, data);
+  utilsCacheExpiry.set(key, Date.now() + CACHE_DURATION);
+}
+
+// 清除缓存数据
+function clearCache(key) {
+  if (key) {
+    utilsDataCache.delete(key);
+    utilsCacheExpiry.delete(key);
+  } else {
+    // 清除所有缓存
+    utilsDataCache.clear();
+    utilsCacheExpiry.clear();
+  }
+}
+
 // 暴露到全局作用域
 window.showImageModal = showImageModal;
 window.hideImageModal = hideImageModal;
+window.getCachedData = getCachedData;
+window.updateCache = updateCache;
+window.clearCache = clearCache;

@@ -13,7 +13,28 @@ async function loadCollectors() {
     )
   `;
   
-  await loadCommonData('toll_collectors_info', selectFields, 'collector', currentUser, allStations, allGroups, allCollectors);
+  // 检查 loadCommonData 函数是否存在
+  if (typeof loadCommonData === 'function') {
+    await loadCommonData('toll_collectors_info', selectFields, 'collector', currentUser, allStations, allGroups, allCollectors);
+  } else {
+    console.error('loadCommonData 函数未定义，无法加载收费员数据');
+    // 尝试直接从数据库加载数据
+    try {
+      const { data, error } = await window.supabase
+        .from('toll_collectors_info')
+        .select(selectFields)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('直接加载收费员数据失败:', error);
+      } else {
+        allCollectors = data || [];
+        console.log('直接加载收费员数据成功，共', allCollectors.length, '条记录');
+      }
+    } catch (error) {
+      console.error('直接加载收费员数据异常:', error);
+    }
+  }
 }
 
 function renderCollectors() {

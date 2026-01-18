@@ -110,37 +110,47 @@ async function initFilters() {
 async function loadInitialData() {
   try {
     console.log('开始加载初始数据...');
-    showGlobalLoader('正在加载数据...');
+    // 检查 showGlobalLoader 函数是否存在
+    if (typeof showGlobalLoader === 'function') {
+      showGlobalLoader('正在加载数据...');
+    }
 
-    // 1. 先加载核心数据（基础数据）
+    // 按顺序加载数据，确保依赖关系正确
+    // 1. 首先加载分公司数据
     await loadCompanies();
-
-    // 2. 加载收费站数据
+    console.log('分公司数据加载完成');
+    
+    // 2. 然后加载收费站数据（分公司依赖）
     await loadStations();
-
-    // 3. 加载班组数据
+    console.log('收费站数据加载完成');
+    
+    // 3. 然后加载班组数据（收费站依赖）
     await loadGroups();
+    console.log('班组数据加载完成');
+    
+    // 4. 然后并行加载其他数据（都依赖于上面的基础数据）
+    await Promise.all([
+      loadCollectors(),  // 依赖于收费站和班组数据
+      loadMonitors(),    // 依赖于收费站和班组数据
+      loadShifts(),      // 可能依赖于收费站数据
+      loadUsers()        // 可能依赖于分公司数据
+    ]);
+    console.log('其他数据加载完成');
 
-    // 4. 加载收费员数据（records需要依赖）
-    await loadCollectors();
-
-    // 5. 加载监控员数据
-    await loadMonitors();
-
-    // 6. 加载班次数据
-    await loadShifts();
-
-    // 7. 加载用户数据
-    await loadUsers();
-
-    // 8. 初始化筛选器
+    // 初始化筛选器
     initFilters();
 
-    // 9. 加载记录数据（此时所有依赖数据都已加载完成）
+    // 加载记录数据（此时所有依赖数据都已加载完成）
     console.log('开始加载登记记录...');
     await loadRecords();
+    
+    // 获取真实的记录计数
+    if (typeof getRecordsCount === 'function') {
+      console.log('开始获取记录计数...');
+      await getRecordsCount();
+    }
 
-    // 10. 标记所有标签页为已加载
+    // 标记所有标签页为已加载
     loadedTabs.add('records');
     loadedTabs.add('companies');
     loadedTabs.add('stations');
@@ -150,10 +160,10 @@ async function loadInitialData() {
     loadedTabs.add('shifts');
     loadedTabs.add('users');
 
-    // 11. 渲染当前标签页
+    // 渲染当前标签页
     renderCurrentTab();
 
-    // 12. 确保默认标签页（records）的菜单按钮和内容区域正确显示
+    // 确保默认标签页（records）的菜单按钮和内容区域正确显示
     const recordsMenuItem = document.querySelector('.menu-item[onclick*="records"]');
     const recordsTab = document.getElementById('records-tab');
     if (recordsMenuItem) {
@@ -164,10 +174,16 @@ async function loadInitialData() {
     }
 
     console.log('初始数据加载完成');
-    hideGlobalLoader();
+    // 检查 hideGlobalLoader 函数是否存在
+    if (typeof hideGlobalLoader === 'function') {
+      hideGlobalLoader();
+    }
   } catch (error) {
     console.error('加载初始数据失败:', error);
-    hideGlobalLoader();
+    // 检查 hideGlobalLoader 函数是否存在
+    if (typeof hideGlobalLoader === 'function') {
+      hideGlobalLoader();
+    }
     showAlert('加载数据失败，请刷新页面重试', 'error');
   }
 }
@@ -192,9 +208,30 @@ async function switchTab(event, tabName) {
       switch(tabName) {
           case 'companies': await loadCompanies(); break;
           case 'stations': await loadStations(); break;
-          case 'groups': await loadGroups(); break;
-          case 'collectors': await loadCollectors(); break;
-          case 'monitors': await loadMonitors(); break;
+          case 'groups': 
+            // 检查 loadCommonData 函数是否存在
+            if (typeof loadCommonData === 'function') {
+              await loadGroups(); 
+            } else {
+              console.error('loadCommonData 函数未定义，无法加载班组数据');
+            }
+            break;
+          case 'collectors': 
+            // 检查 loadCommonData 函数是否存在
+            if (typeof loadCommonData === 'function') {
+              await loadCollectors(); 
+            } else {
+              console.error('loadCommonData 函数未定义，无法加载收费员数据');
+            }
+            break;
+          case 'monitors': 
+            // 检查 loadCommonData 函数是否存在
+            if (typeof loadCommonData === 'function') {
+              await loadMonitors(); 
+            } else {
+              console.error('loadCommonData 函数未定义，无法加载监控员数据');
+            }
+            break;
           case 'shifts': await loadShifts(); break;
           case 'users': await loadUsers(); break;
           // records 已经默认加载
@@ -208,7 +245,10 @@ async function switchTab(event, tabName) {
     allMenuItems.forEach(item => {
       item.classList.remove('active');
     });
-    event.currentTarget.classList.add('active');
+    // 检查 event.currentTarget 是否存在
+    if (event && event.currentTarget) {
+      event.currentTarget.classList.add('active');
+    }
     
     // 更新标签页内容显示
     const allTabContents = document.querySelectorAll('.tab-content');
