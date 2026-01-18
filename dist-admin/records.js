@@ -1,6 +1,110 @@
 // ==================== 登记记录管理 ====================
 
-async function loadRecords() {
+// 全局变量
+let totalRecordsCount = 0; // 真实的总记录数
+let todayRecordsCount = 0; // 真实的今日记录数
+let monthRecordsCount = 0; // 真实的本月记录数
+
+// 获取真实的记录数
+async function getRecordsCount() {
+  try {
+    console.log('=== 开始获取记录计数 ===');
+    
+    // 构建基础查询（不含分页）
+    const buildBaseQuery = () => {
+      let query = window.supabase
+        .from('toll_records')
+        .select('*');
+      
+      if (startDate) {
+        query = query.gte('created_at', startDate);
+      }
+      
+      if (endDate) {
+        const endDateWithTime = new Date(endDate);
+        endDateWithTime.setDate(endDateWithTime.getDate() + 1);
+        query = query.lt('created_at', endDateWithTime.toISOString());
+      }
+      
+      return query;
+    };
+    
+    // 获取总记录数
+    try {
+      const totalQuery = buildBaseQuery();
+      const { data: totalData, error: totalError } = await totalQuery;
+      
+      if (totalError) {
+        console.error('获取总记录数错误:', totalError);
+        totalRecordsCount = 0;
+      } else {
+        totalRecordsCount = totalData ? totalData.length : 0;
+      }
+    } catch (error) {
+      console.error('获取总记录数失败:', error);
+      totalRecordsCount = 0;
+    }
+    
+    // 获取今日记录数
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayQuery = buildBaseQuery()
+        .gte('created_at', today.toISOString());
+      const { data: todayData, error: todayError } = await todayQuery;
+      
+      if (todayError) {
+        console.error('获取今日记录数错误:', todayError);
+        todayRecordsCount = 0;
+      } else {
+        todayRecordsCount = todayData ? todayData.length : 0;
+      }
+    } catch (error) {
+      console.error('获取今日记录数失败:', error);
+      todayRecordsCount = 0;
+    }
+    
+    // 获取本月记录数
+    try {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthQuery = buildBaseQuery()
+        .gte('created_at', monthStart.toISOString());
+      const { data: monthData, error: monthError } = await monthQuery;
+      
+      if (monthError) {
+        console.error('获取本月记录数错误:', monthError);
+        monthRecordsCount = 0;
+      } else {
+        monthRecordsCount = monthData ? monthData.length : 0;
+      }
+    } catch (error) {
+      console.error('获取本月记录数失败:', error);
+      monthRecordsCount = 0;
+    }
+    
+    console.log('=== 记录计数获取完成 ===');
+    console.log('总记录数:', totalRecordsCount);
+    console.log('今日记录数:', todayRecordsCount);
+    console.log('本月记录数:', monthRecordsCount);
+    
+    return {
+      total: totalRecordsCount,
+      today: todayRecordsCount,
+      month: monthRecordsCount
+    };
+  } catch (error) {
+    console.error('获取记录计数失败:', error);
+    return {
+      total: 0,
+      today: 0,
+      month: 0
+    };
+  }
+}
+
+async function loadRecords(page = 1, pageSize = 20) {
   try {
     console.log('=== 开始加载登记记录 ===');
     console.log('当前用户:', currentUser);
@@ -8,6 +112,7 @@ async function loadRecords() {
     console.log('allStations长度:', allStations.length);
     console.log('allGroups长度:', allGroups.length);
     console.log('allCollectors长度:', allCollectors.length);
+    console.log('分页参数:', { page, pageSize });
 
     let query = window.supabase
       .from('toll_records')
@@ -26,6 +131,25 @@ async function loadRecords() {
       `)
       .order('created_at', { ascending: false });
 
+    // 尝试使用不同的分页方法，根据 Supabase 客户端版本选择合适的方法
+    try {
+      // 方法 1: 尝试使用 limit + offset 方法
+      query = query.limit(pageSize).offset((page - 1) * pageSize);
+      console.log('使用 limit + offset 方法进行分页');
+    } catch (error) {
+      try {
+        // 方法 2: 尝试使用 range 方法
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize - 1;
+        query = query.range(start, end);
+        console.log('使用 range 方法进行分页:', start, '-', end);
+      } catch (error) {
+        // 方法 3: 如果都失败了，不使用分页，只使用 limit
+        query = query.limit(pageSize);
+        console.log('使用 limit 方法进行分页，无 offset');
+      }
+    }
+
     if (startDate) {
       query = query.gte('created_at', startDate);
       console.log('应用开始日期筛选:', startDate);
@@ -38,7 +162,7 @@ async function loadRecords() {
       console.log('应用结束日期筛选:', endDateWithTime.toISOString());
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       console.error('Supabase查询错误:', error);
@@ -56,7 +180,7 @@ async function loadRecords() {
     // 获取所有记录ID
     const recordIds = data.map(record => record.id);
     
-    // 批量获取所有图片信息
+    // 批量获取当前页记录的图片信息
     if (recordIds.length > 0) {
       const { data: images, error: imagesError } = await window.supabase
         .from('toll_record_images')
@@ -184,9 +308,12 @@ async function loadRecords() {
 
     console.log(`最终记录数量: ${allRecords.length}`);
     console.log('=== 登记记录加载完成 ===');
+    
+    return { records: allRecords, count };
   } catch (error) {
     console.error('加载记录失败:', error);
     showAlert(`加载记录失败: ${error.message || '未知错误'}`, 'error');
+    return { records: [], count: 0 };
   }
 }
 
@@ -229,7 +356,13 @@ async function loadAllData() {
   await loadStations();
   await loadGroups();
   await loadCollectors(); // 确保收费员数据被加载
-  await loadRecords(); // 重新加载记录数据，此时stations已加载完成
+  
+  // 先获取真实的记录数
+  await getRecordsCount();
+  
+  // 重新加载当前页的记录数据
+  currentPage = 1; // 重置为第一页
+  await loadRecords(currentPage, pageSize);
   
   // 应用筛选条件并渲染记录
   filterAndRenderRecords();
@@ -272,7 +405,7 @@ function filterAndRenderRecords() {
   updateStats();
 }
 
-function renderRecords() {
+function renderRecords(pagination = { page: currentPage, pageSize: pageSize }) {
   const container = document.getElementById('records-table-container')
   
   if (filteredRecords.length === 0) {
@@ -323,19 +456,89 @@ function renderRecords() {
         `).join('')}
       </tbody>
     </table>
+    ${renderPagination(pagination.page, pagination.pageSize, totalRecordsCount)}
   `
   
   container.innerHTML = tableHTML
 }
 
-function updateStats() {
-  const total = allRecords.length
-  const today = allRecords.filter(r => isToday(r.created_at)).length
-  const month = allRecords.filter(r => isThisMonth(r.created_at)).length
+// 渲染分页控件
+function renderPagination(currentPage, pageSize, totalRecords) {
+  const totalPages = Math.ceil(totalRecords / pageSize);
   
-  document.getElementById('total-records').textContent = total
-  document.getElementById('today-records').textContent = today
-  document.getElementById('month-records').textContent = month
+  // 总是显示分页控件，即使只有一页
+  let paginationHTML = `
+    <div class="pagination-container">
+      <div class="pagination-info">
+        共 ${totalRecords} 条记录，每页 ${pageSize} 条，共 ${totalPages} 页
+      </div>
+      <div class="pagination-buttons">
+  `;
+  
+  // 上一页按钮
+  if (currentPage > 1) {
+    paginationHTML += `
+      <button class="btn btn-sm btn-secondary" onclick="changePage(${currentPage - 1})">上一页</button>
+    `;
+  } else {
+    paginationHTML += `
+      <button class="btn btn-sm btn-secondary disabled" disabled>上一页</button>
+    `;
+  }
+  
+  // 页码按钮
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === currentPage) {
+      paginationHTML += `
+        <button class="btn btn-sm btn-primary active">${i}</button>
+      `;
+    } else {
+      paginationHTML += `
+        <button class="btn btn-sm btn-secondary" onclick="changePage(${i})">${i}</button>
+      `;
+    }
+  }
+  
+  // 下一页按钮
+  if (currentPage < totalPages) {
+    paginationHTML += `
+      <button class="btn btn-sm btn-secondary" onclick="changePage(${currentPage + 1})">下一页</button>
+    `;
+  } else {
+    paginationHTML += `
+      <button class="btn btn-sm btn-secondary disabled" disabled>下一页</button>
+    `;
+  }
+  
+  paginationHTML += `
+      </div>
+    </div>
+  `;
+  
+  return paginationHTML;
+}
+
+// 处理分页导航
+async function changePage(page) {
+  try {
+    currentPage = page;
+    console.log(`切换到第 ${currentPage} 页`);
+    
+    // 加载新页面的记录
+    await loadRecords(currentPage, pageSize);
+    
+    // 渲染记录和分页控件
+    renderRecords({ page: currentPage, pageSize: pageSize });
+  } catch (error) {
+    console.error('切换页面失败:', error);
+    showAlert(`切换页面失败: ${error.message || '未知错误'}`, 'error');
+  }
+}
+
+function updateStats() {
+  document.getElementById('total-records').textContent = totalRecordsCount
+  document.getElementById('today-records').textContent = todayRecordsCount
+  document.getElementById('month-records').textContent = monthRecordsCount
 }
 
 async function deleteRecord(id) {
@@ -350,8 +553,10 @@ async function deleteRecord(id) {
     if (error) throw error
     
     showAlert('删除成功', 'success')
-    await loadRecords()
-    renderRecords()
+    // 重新加载当前页的数据
+    const currentPageNum = pageCounts[currentTab] || 1;
+    await loadRecords(currentPageNum, pageSize)
+    renderRecords({ page: currentPageNum, pageSize })
     updateStats()
   } catch (error) {
     console.error('删除失败:', error)
