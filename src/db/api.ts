@@ -387,6 +387,7 @@ export async function uploadRecordImage(
     let fileSize: number
     let fileFormat: string
     let imageUrl: string
+    let uploadSuccess = false
 
     if (typeof fileOrPath === 'string') {
       // 微信小程序：使用本地路径上传到Supabase Storage
@@ -410,7 +411,7 @@ export async function uploadRecordImage(
         console.log('文件名:', fileName)
 
         // 使用Taro.uploadFile直接上传文件
-        await new Promise((resolve, reject) => {
+        const uploadResult = await new Promise<{ statusCode: number; data: string }>((resolve, reject) => {
           Taro.uploadFile({
             url: uploadUrl,
             filePath: fileOrPath,
@@ -432,15 +433,21 @@ export async function uploadRecordImage(
           })
         })
 
-        // 获取公开访问URL
-        const {data: urlData} = supabase.storage.from('toll-images').getPublicUrl(fileName)
-
-        imageUrl = urlData.publicUrl
-        console.log('图片URL:', imageUrl)
+        // 检查上传状态
+        if (uploadResult.statusCode >= 200 && uploadResult.statusCode < 300) {
+          console.log('图片上传成功，状态码:', uploadResult.statusCode)
+          // 获取公开访问URL
+          imageUrl = `${supabaseUrl}/storage/v1/object/public/toll-images/${fileName}`
+          console.log('图片URL:', imageUrl)
+          uploadSuccess = true
+        } else {
+          console.error('上传失败，状态码:', uploadResult.statusCode)
+          throw new Error(`上传失败，状态码: ${uploadResult.statusCode}`)
+        }
       } catch (uploadError) {
-        console.error('微信小程序上传图片失败，使用本地路径作为备选方案:', uploadError)
-        // 上传失败时，使用本地路径作为备选方案
-        imageUrl = fileOrPath
+        console.error('微信小程序上传图片失败:', uploadError)
+        // 上传失败时，不使用本地路径作为备选方案，而是抛出错误
+        throw uploadError
       }
     } else {
       // Web环境：使用File对象
@@ -457,13 +464,14 @@ export async function uploadRecordImage(
 
       if (uploadError) {
         console.error('上传图片失败:', uploadError)
-        return null
+        throw uploadError
       }
 
       // 获取公开访问URL
       const {data: urlData} = supabase.storage.from('toll-images').getPublicUrl(fileName)
 
       imageUrl = urlData.publicUrl
+      uploadSuccess = true
     }
 
     // 创建图片记录
@@ -485,9 +493,11 @@ export async function uploadRecordImage(
       return null
     }
 
+    console.log('图片记录保存成功:', imageRecord)
     return imageRecord as TollRecordImage
   } catch (error) {
     console.error('上传图片异常:', error)
+    // 返回null表示上传失败
     return null
   }
 }
